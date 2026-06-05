@@ -1,5 +1,5 @@
-[ ] tambah tugas tambah fungsi double keyword (menyapa kembali dan menanyakan kabar)
-[ ] tambah tugas bikin memory (biar ai bisa ingat)
+[x] tambah tugas tambah fungsi double keyword (menyapa kembali dan menanyakan kabar)
+[x] tambah tugas bikin memory (biar ai bisa ingat)
 [ ] tambah tugas statistik produktivitas
 [ ] tambah tugas jadwal harian
 [ ] tambah tugas cuaca

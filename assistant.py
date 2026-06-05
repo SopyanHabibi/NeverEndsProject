@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import time
 import webbrowser
@@ -6,17 +7,50 @@ from playsound import playsound
 
 
 FILE_TUGAS = "todo_list.txt"
+FILE_MEMORI = "memory.json"
 
+# ==================== FITUR BARU: MEMORI ASISTEN ====================
+def inisialisasi_memori():
+    """Membuat file memori default jika belum ada di komputer."""
+    if not os.path.exists(FILE_MEMORI):
+        data_default = {"nama": "kamu", "hobi": "belum diatur", "umur": "belum diatur"}
+        with open(FILE_MEMORI, "w") as file:
+            json.dump(data_default, file, indent=4)
+
+
+def baca_memori():
+    """Membaca data dari file JSON."""
+    inisialisasi_memori()
+    with open(FILE_MEMORI, "r") as file:
+        return json.load(file)
+
+
+def simpan_memori(kunci, nilai):
+    """Mengubah data spesifik di dalam memori."""
+    data = baca_memori()
+    data[kunci] = nilai  # Mengubah nilai berdasarkan kuncinya (misal: data['nama'] = 'ian')
+
+    with open(FILE_MEMORI, "w") as file:
+        json.dump(data, file, indent=4)
+
+
+# ===================================================================
 
 def sapa_user():
     """Fungsi untuk menyapa pengguna berdasarkan waktu saat ini."""
+    data = baca_memori()  # Memuat memori untuk mendapatkan nama pengguna
+    nama_user = data["nama"]  # Ambil nama dari memori
+
+
     jam = datetime.datetime.now().hour
     if jam < 12:
-        print("Hai! Selamat pagi! Aku Neira, asisten virtualmu. Ada yang bisa saya bantu?")
-    elif 12 <= jam <= 18:
-        print("Hai! Selamat siang! Aku Neira, asisten virtualmu. Ada yang bisa saya bantu?")
+        print(f"Neira: Selamat pagi, {nama_user}! Ada yang bisa saya bantu?")
+    elif 12 <= jam < 18:
+        print(
+            f"Neira: Selamat siang/sore, {nama_user}! Ada yang bisa saya bantu?"
+        )
     else:
-        print("Hai! Selamat malam! Aku Neira, asisten virtualmu. Ada yang bisa saya bantu?")
+        print(f"Neira: Selamat malam, {nama_user}! Ada yang bisa saya bantu?")
 
 
 def set_reminder(menit):
@@ -108,40 +142,135 @@ def hapus_tugas(nomor):
         print("Neira: Nomor tugas tidak valid.")
 
 
-def assistant():
+def neira():
     sapa_user()
 
+    data = baca_memori()  # Memuat memori untuk mendapatkan nama pengguna
+    nama_user = data["nama"]  # Ambil nama dari memori
     while True:
-        # Mengambil input dari user dan mengubah nya menjadi huruf kecil semua
         perintah = input("\nKamu: ").lower()
 
-        # Fitur: Menyapa kembali
-        if "halo" in perintah or "hi" in perintah:
-            print("Neira: Halo! Senang bertemu denganmu.")
-        
-        # Fitur: Menanyakan kabar
-        elif "apa kabar" in perintah or "gimana kabar" in perintah:
-            print("Neira: Aku baik, terima kasih! Bagaimana denganmu?")
+        if "keluar" in perintah or "stop" in perintah or "dadah" in perintah:
+            print(
+                "Neira: Sampai jumpa! Neira akan terus menunggu kamu."
+            )
+            break
 
-        # fitur: reminder sederhana
-        elif "ingatkan aku 1 menit lagi" in perintah:
+        keyword_dikenali = False
+
+        # ==================== LOGIKA MEMORI BARU (PERBAIKAN BUG) ====================
+
+        # --- KELOMPOK NAMA (Dibuat Eksklusif dengan if-elif agar tidak tabrakan) ---
+        if "siapa aku" in perintah or "ingat namaku" in perintah:
+            data = baca_memori()
+            if data["nama"] != "kamu":
+                print(f"Neira: Kamu adalah {data['nama']}. Saya tidak akan lupa!")
+            else:
+                print(
+                    "Neira: Kamu belum memberi tahu namamu. Ketik 'namaku [Nama kamu]'"
+                )
+            keyword_dikenali = True
+
+
+        elif "namaku" in perintah:  # Menggunakan elif agar tidak memicu deteksi ganda
+            nama_baru = perintah.replace("namaku", "").strip()
+            if nama_baru:
+                simpan_memori("nama", nama_baru)
+                print(f"Neira: Catat! Mulai sekarang saya panggil kamu {nama_baru}.")
+            else:
+                print("Neira: Siapa namamu? Contoh: 'namaku ian'")
+            keyword_dikenali = True
+
+        if "berapa umurku" in perintah or "ingat umurku" in perintah:
+            data = baca_memori()
+            if data["umur"] != "belum diatur":
+                print(f"Neira: Umur kamu adalah {data['umur']} tahun. Saya tidak akan lupa!")
+            else:
+                print(
+                    "Neira: Kamu belum memberi tahu umurmu. Ketik 'umurku [Umur kamu]'"
+                )
+            keyword_dikenali = True
+
+        elif "umurku" in perintah:
+            umur_baru = perintah.replace("umurku", "").strip()
+            if umur_baru:
+                simpan_memori("umur", umur_baru)
+                print(f"Neira: Oke, umur kamu sekarang tercatat {umur_baru} tahun.")
+            else:
+                print("Neira: Berapa umurmu? contoh: 'umurku 24'")
+                keyword_dikenali = True
+
+        # --- KELOMPOK HOBI (Dibuat Eksklusif dengan if-elif agar tidak tabrakan) ---
+        if "apa hobiku" in perintah:  # Kita cek pertanyaan yang lebih panjang dulu
+            data = baca_memori()
+            if data["hobi"] != "belum diatur":
+                print(f"Neira: Setahu saya, hobi kamu itu {data['hobi']}.")
+            else:
+                print(
+                    "Neira: Kamu belum cerita hobimu apa. Ketik 'hobiku [Hobi kamu]'"
+                )
+            keyword_dikenali = True
+
+        elif "hobiku" in perintah:  # Jika bukan bertanya, berarti user sedang mendaftarkan hobi baru
+            hobi_baru = perintah.replace("hobiku", "").strip()
+            if hobi_baru:
+                simpan_memori("hobi", hobi_baru)
+                print(f"Neira: Oh, jadi kamu suka {hobi_baru}. Keren!")
+            else:
+                print("Neira: Apa hobimu? Contoh: 'hobiku coding'")
+            keyword_dikenali = True
+
+        # ==================== LOGIKA LAMA (TETAP DIJAGA) ====================
+        if "halo" in perintah or "hai" in perintah or "hi" in perintah:
+            print(f"Neira: Halo juga {nama_user}!")
+            keyword_dikenali = True
+
+        if "apa kabar" in perintah or "bagaimana kabarmu" in perintah:
+            print(
+                "Neira: Saya baik-baik saja, terima kasih sudah bertanya! Bagaimana dengan kamu?"
+            )
+            keyword_dikenali = True
+
+        if "jam" in perintah or "waktu" in perintah:
+            waktu_sekarang = datetime.datetime.now().strftime("%H:%M:%S")
+            print(f"Neira: Sekarang jam {waktu_sekarang}.")
+            keyword_dikenali = True
+
+        if "buka google" in perintah:
+            print("Neira: Membuka Google di browser kamu...")
+            webbrowser.open("https://www.google.com")
+            keyword_dikenali = True
+
+        if "buka youtube" in perintah or "buka yt" in perintah:
+            print("Neira: Membuka YouTube di browser kamu...")
+            webbrowser.open("https://www.youtube.com")
+            keyword_dikenali = True
+
+        if "buka instagram" in perintah or "buka ig" in perintah:
+            print("Neira: Membuka Instagram di browser kamu...")
+            webbrowser.open("https://www.instagram.com")
+            keyword_dikenali = True
+
+        if "ingatkan aku 1 menit lagi" in perintah:
             set_reminder(1)
+            keyword_dikenali = True
+        if "ingatkan aku 5 menit lagi" in perintah:
+            set_reminder(5)
+            keyword_dikenali = True
 
-        # LOGIKA PERINTAH TO-DO LIST
-        elif "tambah tugas" in perintah or "bikin tugas" in perintah:
-            # Mengambil nama tugas setelah kata 'tambah tugas '
-            # Contoh: "tambah tugas belajar python" -> nama tugasnya: "belajar python"
-            nama_tugas = perintah.replace("bikin tugas", "").strip()
+        if "tambah tugas" in perintah:
+            nama_tugas = perintah.replace("tambah tugas", "").strip()
             if nama_tugas:
                 tambah_tugas(nama_tugas)
             else:
                 print("Neira: Tugasnya apa? Tulis contoh: 'tambah tugas belajar'")
+            keyword_dikenali = True
 
-        elif "lihat tugas" in perintah or "list tugas" in perintah or "liat tugas" in perintah:
+        if "lihat tugas" in perintah or "list tugas" in perintah:
             lihat_tugas()
+            keyword_dikenali = True
 
-        elif "selesai tugas" in perintah or "tandai selesai" in perintah:
-            # Contoh perintah: "selesai tugas 1"
+        if "selesai tugas" in perintah:
             try:
                 nomor = int(perintah.replace("selesai tugas", "").strip())
                 tandai_selesai(nomor)
@@ -149,9 +278,9 @@ def assistant():
                 print(
                     "Neira: Tolong masukkan nomor tugasnya. Contoh: 'selesai tugas 1'"
                 )
+            keyword_dikenali = True
 
-        elif "hapus tugas" in perintah:
-            # Contoh perintah: "hapus tugas 2"
+        if "hapus tugas" in perintah:
             try:
                 nomor = int(perintah.replace("hapus tugas", "").strip())
                 hapus_tugas(nomor)
@@ -159,37 +288,14 @@ def assistant():
                 print(
                     "Neira: Tolong masukkan nomor tugasnya. Contoh: 'hapus tugas 2'"
                 )
+            keyword_dikenali = True
 
-        # Fitur: Cek waktu/jam
-        elif "jam" in perintah or "waktu" in perintah:
-            waktu_sekarang = datetime.datetime.now().strftime("%H:%M:%S")
-            print(f"Neira: Saat ini jam ({waktu_sekarang})")
-
-        # fitur: membuka google (automasi browser sederhana)
-        elif "buka google" in perintah:
-            print("Neira: Membuka Google...")
-            webbrowser.open("https://www.google.com")
-
-        # fitur: membuka instagram (automasi browser sederhana)
-        elif "buka instagram" in perintah or "buka ig" in perintah:
-            print("Neira: Membuka Instagram...")
-            webbrowser.open("https://www.instagram.com/_sop.ayam/")
-
-        # fitur: membuka youtube (automasi browser sederhana)
-        elif "buka youtube" in perintah or "buka yt" in perintah:
-            print("Neira: Membuka YouTube...")
-            webbrowser.open("https://www.youtube.com")
-
-        # fitur: exit program
-        elif "keluar" in perintah or "exit" in perintah:
-            print("Neira: Sampai jumpa! Semoga harimu menyenangkan.")
-            break
-
-        # jika perintah tidak dikenali
-        else:
-            print("Neira: Maaf, saya tidak mengerti perintah itu. Coba perintah lain atau ketik 'keluar' untuk keluar.")
+        if not keyword_dikenali:
+            print(
+                "Neira: Maaf, saya belum memahami perintah itu. Maklum, saya masih versi basic!"
+            )
 
 
 # Menjalankan assistant
 if __name__ == "__main__":
-    assistant()
+    neira()
