@@ -33,5 +33,12 @@
         "status": "belum selesai",
         "waktu_ditambahkan": "2026-06-07 12:57:09",
         "waktu_selesai": null
+    },
+    {
+        "id": 6,
+        "tugas": "rapikan kode",
+        "status": "selesai",
+        "waktu_dibuat": "2026-06-07 22:56:44",
+        "waktu_selesai": "2026-06-07 23:21:09"
     }
 ]

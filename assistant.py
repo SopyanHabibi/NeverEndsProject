@@ -34,6 +34,31 @@ def simpan_memori(kunci, nilai):
         json.dump(data, file, indent=4)
 
 
+def cek_typo_nama(perintah_user):
+    """fungsi untuk mendeteksi apakah user salah mengetik nama Neira."""
+    # daftar variasi typo yang paling sering terjadi untuk nama 'Neira'
+    daftar_typo = [
+        "neria",
+        "niera",
+        "neyra",
+        "nera",
+        "neirra",
+        "najra",
+        "neisa",
+    ]
+
+    # memecah perintah menjadi kata-kata tunggal
+    kata_kata = perintah_user.split()
+
+    for kata in kata_kata:
+        kata_bersih = kata.strip(",.?!\"'")
+
+        if kata_bersih in daftar_typo:
+            return True
+        
+    return False
+
+
 # ===================================================================
 
 def sapa_user():
@@ -262,77 +287,36 @@ def view_statistics():
     print(f"Tugas selesai dalam 1 minggu ini  : {selesai_seminggu_ini}")
 
 
+def ringkas_profil():
+    """Fungsi untuk menampilkan ringkasan semua hal yang Neira ketahui tentang user"""
+    data = baca_memori()
 
-# def tambah_tugas(nama_tugas):
-#     """Menambahkan tugas baru ke dalam file teks."""
-#     # 'a' berarti append (menambahkan tanpa menghapus isi file yang sudah ada)
-#     with open(FILE_TUGAS, "a") as file:
-#         file.write(f"[ ] {nama_tugas}\n")
-#     print(f"Neira: Siap! '{nama_tugas}' telah ditambahkan ke daftar.")
+    print("\n===========================================")
+    print(f"   👤 PROFIL PENGGUNA (DIINGAT OLEH NEIRA)  ")
+    print("===========================================")
 
+    # Menghitung berapa banyak informasi yang sudah diketahui Neira
+    total_informasi = 0
 
-# def lihat_tugas():
-#     """Membaca dan menampilkan semua tugas."""
-#     # Cek apakah file sudah ada atau belum
-#     if not os.path.exists(FILE_TUGAS) or os.path.getsize(FILE_TUGAS) == 0:
-#         print("Neira: Gada tugas hari ini! Santai aja, nikmati harimu 😊")
-#         return []
+    # melakukan looping untuk membaca semua key dan value di dalam file JSON
+    for kunci, nilai in data.items():
+        kunci_rapi = kunci.upper()
 
-#     print("\n📋 DAFTAR TUGAS HARI INI:")
-#     with open(FILE_TUGAS, "r") as file:
-#         tugas_list = file.readlines()
+        if nilai == "kamu" or nilai == "belum diatur":
+            status_nilai = "❌ Belum kamu ceritakan"
+        else:
+            status_nilai = nilai
+            total_informasi += 1
 
-#     # Menampilkan tugas dengan nomor urut
-#     for indeks, tugas in enumerate(tugas_list):
-#         # .strip() digunakan untuk menghilangkan spasi/baris baru di akhir teks
-#         print(f"{indeks + 1}. {tugas.strip()}")
+        print(f"➤ {kunci_rapi} : {status_nilai}")
 
-#     return tugas_list
+    print("-------------------------------------------")
+    if total_informasi == 0:
+        print("Neira : Saya belum tahu banyak tentangmu. Yuk, ceritakan sesuatu!")
+    else:
+        print(f"Neira: Total ada {total_informasi} hal penting tentangmu yang saya kunci di memori")
+    print("===========================================")
 
-
-# def tandai_selesai(nomor):
-#     """Mengubah status tugas menjadi selesai berdasarkan nomor urut."""
-#     if not os.path.exists(FILE_TUGAS):
-#         print("Neira: Kamu belum punya daftar tugas.")
-#         return
-
-#     with open(FILE_TUGAS, "r") as file:
-#         tugas_list = file.readlines()
-
-#     # Memastikan nomor yang dimasukkan user itu ada di daftar
-#     if 0 < nomor <= len(tugas_list):
-#         indeks = nomor - 1
-#         # Ganti tanda [ ] menjadi [x]
-#         if "[ ]" in tugas_list[indeks]:
-#             tugas_list[indeks] = tugas_list[indeks].replace("[ ]", "[x]")
-#             with open(FILE_TUGAS, "w") as file:  # 'w' untuk menulis ulang file
-#                 file.writelines(tugas_list)
-#             print(f"Neira: Bagus! Tugas nomor {nomor} ditandai selesai.")
-#         else:
-#             print("Neira: Tugas itu memang sudah selesai sebelumnya.")
-#     else:
-#         print("Neira: Nomor tugas tidak valid.")
-
-
-# def hapus_tugas(nomor):
-#     """Menghapus tugas dari file berdasarkan nomor urut."""
-#     if not os.path.exists(FILE_TUGAS):
-#         print("Neira: Kamu belum punya daftar tugas.")
-#         return
-
-#     with open(FILE_TUGAS, "r") as file:
-#         tugas_list = file.readlines()
-
-#     if 0 < nomor <= len(tugas_list):
-#         indeks = nomor - 1
-#         tugas_dihapus = tugas_list.pop(indeks)  # Hapus tugas dari list
-#         with open(FILE_TUGAS, "w") as file:
-#             file.writelines(tugas_list)
-#         print(
-#             f"Neira: '{tugas_dihapus.strip()}' telah dihapus dari daftar."
-#         )
-#     else:
-#         print("Neira: Nomor tugas tidak valid.")
 
 
 def neira():
@@ -341,6 +325,8 @@ def neira():
     data = baca_memori()  # Memuat memori untuk mendapatkan nama pengguna
     nama_user = data["nama"]  # Ambil nama dari memori
     while True:
+
+
         perintah = input("\nKamu: ").lower()
 
         if "keluar" in perintah or "stop" in perintah or "dadah" in perintah:
@@ -351,51 +337,47 @@ def neira():
 
         keyword_dikenali = False
 
+        # --- FITUR BARU: DETEKSI TYPO NAMA (CEK PALING AWAL) ---
+        if cek_typo_nama(perintah):
+            print("Neira: Hmm... Mungkin maksudmu 'Neira'? Typo dikit tuh, hehe. Ada yang bisa saya bantu?")
+            keyword_dikenali = True
+            continue
 
-        # ==================== LOGIKA MEMORI BARU (PERBAIKAN BUG) ====================
 
-        # --- KELOMPOK NAMA (Dibuat Eksklusif dengan if-elif agar tidak tabrakan) ---
-        if "siapa aku" in perintah or "ingat namaku" in perintah:
-            data = baca_memori()
-            if data["nama"] != "kamu":
-                print(f"Neira: Kamu adalah {data['nama']}. Saya tidak akan lupa!")
-            else:
-                print(
-                    "Neira: Kamu belum memberi tahu namamu. Ketik 'namaku [Nama kamu]'"
-                )
+        # ==================== LOGIKA MEMORI BARU (DENGAN RINGKASAN) ====================
+
+        # 1. Perintah Ringkasan Profil (Menu Status Player)
+        if (
+            "siapa aku" in perintah
+            or "ringkas tentangku" in perintah
+            or "profilku" in perintah
+            or "biodataku" in perintah
+        ):
+            ringkas_profil()  # Memanggil fungsi ringkasan baru
             keyword_dikenali = True
 
-
-        elif "namaku" in perintah:  # Menggunakan elif agar tidak memicu deteksi ganda
+        # 2. Kelompok Mengatur Nama
+        elif "namaku" in perintah:
             nama_baru = perintah.replace("namaku", "").strip()
             if nama_baru:
                 simpan_memori("nama", nama_baru)
                 print(f"Neira: Catat! Mulai sekarang saya panggil kamu {nama_baru}.")
             else:
-                print("Neira: Siapa namamu? Contoh: 'namaku ian'")
+                print("Neira: Siapa namamu? Contoh: 'namaku Budi'")
             keyword_dikenali = True
 
-        if "berapa umurku" in perintah or "ingat umurku" in perintah:
-            data = baca_memori()
-            if data["umur"] != "belum diatur":
-                print(f"Neira: Umur kamu adalah {data['umur']} tahun. Saya tidak akan lupa!")
+        # 3. Kelompok Mengatur Hobi
+        elif "hobiku" in perintah:
+            hobi_baru = perintah.replace("hobiku", "").strip()
+            if hobi_baru:
+                simpan_memori("hobi", hobi_baru)
+                print(f"Neira: Oh, jadi kamu suka {hobi_baru}. Keren!")
             else:
-                print(
-                    "Neira: Kamu belum memberi tahu umurmu. Ketik 'umurku [Umur kamu]'"
-                )
+                print("Neira: Apa hobimu? Contoh: 'hobiku coding'")
             keyword_dikenali = True
 
-        elif "umurku" in perintah:
-            umur_baru = perintah.replace("umurku", "").strip()
-            if umur_baru:
-                simpan_memori("umur", umur_baru)
-                print(f"Neira: Oke, umur kamu sekarang tercatat {umur_baru} tahun.")
-            else:
-                print("Neira: Berapa umurmu? contoh: 'umurku 24'")
-                keyword_dikenali = True
-
-        # --- KELOMPOK HOBI (Dibuat Eksklusif dengan if-elif agar tidak tabrakan) ---
-        if "apa hobiku" in perintah:  # Kita cek pertanyaan yang lebih panjang dulu
+        # 4. Kelompok Menanyakan Hobi Secara Spesifik
+        elif "apa hobiku" in perintah:
             data = baca_memori()
             if data["hobi"] != "belum diatur":
                 print(f"Neira: Setahu saya, hobi kamu itu {data['hobi']}.")
@@ -405,14 +387,7 @@ def neira():
                 )
             keyword_dikenali = True
 
-        elif "hobiku" in perintah:  # Jika bukan bertanya, berarti user sedang mendaftarkan hobi baru
-            hobi_baru = perintah.replace("hobiku", "").strip()
-            if hobi_baru:
-                simpan_memori("hobi", hobi_baru)
-                print(f"Neira: Oh, jadi kamu suka {hobi_baru}. Keren!")
-            else:
-                print("Neira: Apa hobimu? Contoh: 'hobiku coding'")
-            keyword_dikenali = True
+        # ============================================================================
 
         # ==================== LOGIKA LAMA (TETAP DIJAGA) ====================
         if "halo" in perintah or "hai" in perintah or "hi" in perintah:
