@@ -6,7 +6,7 @@ import webbrowser
 from playsound import playsound
 
 
-FILE_TUGAS = "todo_list.txt"
+FILE_TASKS = "tasks.json"
 FILE_MEMORI = "memory.json"
 
 # ==================== FITUR BARU: MEMORI ASISTEN ====================
@@ -69,77 +69,270 @@ def set_reminder(menit):
     except Exception as e:
         print(f"Neira: Maaf, saya tidak dapat memainkan suara alarm. Error: {e}")
 
-
-def tambah_tugas(nama_tugas):
-    """Menambahkan tugas baru ke dalam file teks."""
-    # 'a' berarti append (menambahkan tanpa menghapus isi file yang sudah ada)
-    with open(FILE_TUGAS, "a") as file:
-        file.write(f"[ ] {nama_tugas}\n")
-    print(f"Neira: Siap! '{nama_tugas}' telah ditambahkan ke daftar.")
-
-
-def lihat_tugas():
-    """Membaca dan menampilkan semua tugas."""
-    # Cek apakah file sudah ada atau belum
-    if not os.path.exists(FILE_TUGAS) or os.path.getsize(FILE_TUGAS) == 0:
-        print("Neira: Gada tugas hari ini! Santai aja, nikmati harimu 😊")
-        return []
-
-    print("\n📋 DAFTAR TUGAS HARI INI:")
-    with open(FILE_TUGAS, "r") as file:
-        tugas_list = file.readlines()
-
-    # Menampilkan tugas dengan nomor urut
-    for indeks, tugas in enumerate(tugas_list):
-        # .strip() digunakan untuk menghilangkan spasi/baris baru di akhir teks
-        print(f"{indeks + 1}. {tugas.strip()}")
-
-    return tugas_list
+# ==================== FITUR BARU: TO-DO LIST & STATISTIK (JSON) ====================
+def load_tasks():
+    """Membuat file todo_list.json default jika belum ada."""
+    if not os.path.exists(FILE_TASKS):
+        with open(FILE_TASKS, "w") as file:
+            json.dump([], file, indent=4)
 
 
-def tandai_selesai(nomor):
-    """Mengubah status tugas menjadi selesai berdasarkan nomor urut."""
-    if not os.path.exists(FILE_TUGAS):
-        print("Neira: Kamu belum punya daftar tugas.")
+def read_tasks():
+    """Membaca daftar tugas dari file JSON."""
+    load_tasks()
+    with open(FILE_TASKS, "r") as file:
+        return json.load(file)
+
+
+def save_tasks(daftar_tugas):
+    """Menulis ulang seluruh daftar tugas ke file JSON."""
+    with open(FILE_TASKS, "w") as file:
+        json.dump(daftar_tugas, file, indent=4)
+
+
+def add_tasks(nama_tugas):
+    """Menambahkan tugas baru dengan metadata waktu buat."""
+    daftar = read_tasks()
+
+    # Membuat ID otomatis berdasarkan jumlah tugas yang ada
+    id_baru = len(daftar) + 1
+    waktu_sekarang = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    tugas_baru = {
+        "id": id_baru,
+        "tugas": nama_tugas,
+        "status": "belum selesai",
+        "waktu_dibuat": waktu_sekarang,
+        "waktu_selesai": None,
+    }
+
+    daftar.append(tugas_baru)
+    save_tasks(daftar)
+    print(
+        f"Neira: Siap! '{nama_tugas}' dimasukkan ke daftar pada {waktu_sekarang}."
+    )
+
+
+def view_tasks():
+    """Menampilkan tugas yang belum selesai maupun yang sudah."""
+    daftar = read_tasks()
+
+    if not daftar:
+        print("Neira: Daftar tugas kamu masih kosong!")
         return
 
-    with open(FILE_TUGAS, "r") as file:
-        tugas_list = file.readlines()
+    print("\n📋 DAFTAR TUGAS KAMU:")
+    for t in daftar:
+        status_simbol = "[ ]" if t["status"] == "belum selesai" else "[SELESAI]"
+        print(f"{t['id']}. {status_simbol} {t['tugas']}")
 
-    # Memastikan nomor yang dimasukkan user itu ada di daftar
-    if 0 < nomor <= len(tugas_list):
-        indeks = nomor - 1
-        # Ganti tanda [ ] menjadi [x]
-        if "[ ]" in tugas_list[indeks]:
-            tugas_list[indeks] = tugas_list[indeks].replace("[ ]", "[x]")
-            with open(FILE_TUGAS, "w") as file:  # 'w' untuk menulis ulang file
-                file.writelines(tugas_list)
-            print(f"Neira: Bagus! Tugas nomor {nomor} ditandai selesai.")
-        else:
-            print("Neira: Tugas itu memang sudah selesai sebelumnya.")
-    else:
+
+def mark_done(nomor):
+    """Menandai selesai dan mencatat waktu selesainya."""
+    daftar = read_tasks()
+    ditemukan = False
+
+    for t in daftar:
+        if t["id"] == nomor:
+            ditemukan = True
+            if t["status"] == "belum selesai":
+                t["status"] = "selesai"
+                t["waktu_selesai"] = datetime.datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                save_tasks(daftar)
+                print(f"Neira: Bagus! Tugas nomor {nomor} ditandai selesai.")
+            else:
+                print("Neira: Tugas itu memang sudah selesai sebelumnya.")
+            break
+
+    if not ditemukan:
+        print("Neira: Nomor tugas tidak ditemukan.")
+
+
+def delete_tasks(nomor):
+    """Menghapus tugas dan menyusun ulang ID-nya agar tetap berurutan."""
+    daftar = read_tasks()
+    tugas_baru = [t for t in daftar if t["id"] != nomor]
+
+    if len(daftar) == len(tugas_baru):
         print("Neira: Nomor tugas tidak valid.")
-
-
-def hapus_tugas(nomor):
-    """Menghapus tugas dari file berdasarkan nomor urut."""
-    if not os.path.exists(FILE_TUGAS):
-        print("Neira: Kamu belum punya daftar tugas.")
         return
 
-    with open(FILE_TUGAS, "r") as file:
-        tugas_list = file.readlines()
+    # Susun ulang ID agar rapi (1, 2, 3...)
+    for indeks, t in enumerate(tugas_baru):
+        t["id"] = indeks + 1
 
-    if 0 < nomor <= len(tugas_list):
-        indeks = nomor - 1
-        tugas_dihapus = tugas_list.pop(indeks)  # Hapus tugas dari list
-        with open(FILE_TUGAS, "w") as file:
-            file.writelines(tugas_list)
+    save_tasks(tugas_baru)
+    print(f"Neira: Tugas nomor {nomor} berhasil dihapus.")
+
+
+def view_statistics():
+    """Fungsi statistik yang dilengkapi detektor dan pembersih error data."""
+    daftar = read_tasks()
+    waktu_sekarang = datetime.datetime.now()
+
+    # --- PROTEKSI TAMBAHAN: Mencegah tipe data rusak ---
+    # Jika ternyata yang terbaca bukan sebuah List, kita paksa reset jadi list kosong
+    if not isinstance(daftar, list):
         print(
-            f"Neira: '{tugas_dihapus.strip()}' telah dihapus dari daftar."
+            "Neira: Waduh, struktur data todo_list.json rusak. Saya sedang meresetnya..."
         )
-    else:
-        print("Neira: Nomor tugas tidak valid.")
+        save_tasks([])
+        daftar = []
+
+    if not daftar:
+        print(
+            "Neira: Belum ada data tugas yang bisa dihitung untuk statistik hari ini."
+        )
+        return
+
+    total_tugas_dibuat = len(daftar)
+    total_selesai = 0
+    tugas_seminggu_ini = 0
+    selesai_seminggu_ini = 0
+
+    # Hitung total selesai secara manual dan aman
+    for t in daftar:
+        if isinstance(t, dict) and t.get("status") == "selesai":
+            total_selesai += 1
+
+    print("\n📊 STATISTIK PRODUKTIVITAS")
+    print("==========================")
+    print(f"Total tugas yang pernah dimasukkan : {total_tugas_dibuat}")
+    print(f"Total tugas yang sudah selesai     : {total_selesai}")
+
+    print("\n⏱️ Rincian Durasi Pengerjaan:")
+
+    for t in daftar:
+        # Pengecekan apakah data 't' beneran sebuah Dictionary (Kamus data)
+        if not isinstance(t, dict):
+            continue  # Lewati jika ada data 'sampah' yang bukan dictionary
+
+        # Gunakan fungsi .get() agar program tidak crash jika kunci tidak ditemukan
+        teks_waktu_buat = t.get("waktu_dibuat")
+
+        if not teks_waktu_buat:
+            # Jika tugas tidak punya catatan waktu dibuat, lewati atau beri waktu sekarang
+            continue
+
+        try:
+            waktu_buat = datetime.datetime.strptime(
+                teks_waktu_buat, "%Y-%m-%d %H:%M:%S"
+            )
+        except (ValueError, TypeError):
+            waktu_buat = datetime.datetime.now()
+
+        # Hitung statistik 1 minggu terakhir
+        selisih_hari_buat = (waktu_sekarang - waktu_buat).days
+        if selisih_hari_buat <= 7:
+            tugas_seminggu_ini += 1
+
+        # Jika tugas sudah selesai, hitung durasi pengerjaannya
+        if t.get("status") == "selesai":
+            teks_waktu_selesai = t.get("waktu_selesai")
+            try:
+                waktu_beres = datetime.datetime.strptime(
+                    teks_waktu_selesai, "%Y-%m-%d %H:%M:%S"
+                )
+                durasi = waktu_beres - waktu_buat
+
+                # Cek jika selesainya dalam minggu ini
+                if (waktu_sekarang - waktu_beres).days <= 7:
+                    selesai_seminggu_ini += 1
+            except (ValueError, TypeError):
+                durasi = datetime.timedelta(seconds=0)
+
+            # Format durasi agar mudah dibaca manusia
+            if durasi.days > 0:
+                durasi_teks = f"{durasi.days} hari"
+            else:
+                durasi_teks = f"{durasi.seconds // 3600} jam atau {durasi.seconds // 60} menit"
+
+            print(
+                f"- Tugas '{t.get('tugas')}': Masuk ({t.get('waktu_dibuat')}) -> Selesai dalam {durasi_teks}"
+            )
+        else:
+            print(
+                f"- Tugas '{t.get('tugas')}': [Belum Selesai] - Masuk ({t.get('waktu_dibuat')})"
+            )
+
+    print("--------------------------")
+    print(f"Tugas baru dalam 1 minggu ini     : {tugas_seminggu_ini}")
+    print(f"Tugas selesai dalam 1 minggu ini  : {selesai_seminggu_ini}")
+
+
+
+# def tambah_tugas(nama_tugas):
+#     """Menambahkan tugas baru ke dalam file teks."""
+#     # 'a' berarti append (menambahkan tanpa menghapus isi file yang sudah ada)
+#     with open(FILE_TUGAS, "a") as file:
+#         file.write(f"[ ] {nama_tugas}\n")
+#     print(f"Neira: Siap! '{nama_tugas}' telah ditambahkan ke daftar.")
+
+
+# def lihat_tugas():
+#     """Membaca dan menampilkan semua tugas."""
+#     # Cek apakah file sudah ada atau belum
+#     if not os.path.exists(FILE_TUGAS) or os.path.getsize(FILE_TUGAS) == 0:
+#         print("Neira: Gada tugas hari ini! Santai aja, nikmati harimu 😊")
+#         return []
+
+#     print("\n📋 DAFTAR TUGAS HARI INI:")
+#     with open(FILE_TUGAS, "r") as file:
+#         tugas_list = file.readlines()
+
+#     # Menampilkan tugas dengan nomor urut
+#     for indeks, tugas in enumerate(tugas_list):
+#         # .strip() digunakan untuk menghilangkan spasi/baris baru di akhir teks
+#         print(f"{indeks + 1}. {tugas.strip()}")
+
+#     return tugas_list
+
+
+# def tandai_selesai(nomor):
+#     """Mengubah status tugas menjadi selesai berdasarkan nomor urut."""
+#     if not os.path.exists(FILE_TUGAS):
+#         print("Neira: Kamu belum punya daftar tugas.")
+#         return
+
+#     with open(FILE_TUGAS, "r") as file:
+#         tugas_list = file.readlines()
+
+#     # Memastikan nomor yang dimasukkan user itu ada di daftar
+#     if 0 < nomor <= len(tugas_list):
+#         indeks = nomor - 1
+#         # Ganti tanda [ ] menjadi [x]
+#         if "[ ]" in tugas_list[indeks]:
+#             tugas_list[indeks] = tugas_list[indeks].replace("[ ]", "[x]")
+#             with open(FILE_TUGAS, "w") as file:  # 'w' untuk menulis ulang file
+#                 file.writelines(tugas_list)
+#             print(f"Neira: Bagus! Tugas nomor {nomor} ditandai selesai.")
+#         else:
+#             print("Neira: Tugas itu memang sudah selesai sebelumnya.")
+#     else:
+#         print("Neira: Nomor tugas tidak valid.")
+
+
+# def hapus_tugas(nomor):
+#     """Menghapus tugas dari file berdasarkan nomor urut."""
+#     if not os.path.exists(FILE_TUGAS):
+#         print("Neira: Kamu belum punya daftar tugas.")
+#         return
+
+#     with open(FILE_TUGAS, "r") as file:
+#         tugas_list = file.readlines()
+
+#     if 0 < nomor <= len(tugas_list):
+#         indeks = nomor - 1
+#         tugas_dihapus = tugas_list.pop(indeks)  # Hapus tugas dari list
+#         with open(FILE_TUGAS, "w") as file:
+#             file.writelines(tugas_list)
+#         print(
+#             f"Neira: '{tugas_dihapus.strip()}' telah dihapus dari daftar."
+#         )
+#     else:
+#         print("Neira: Nomor tugas tidak valid.")
 
 
 def neira():
@@ -157,6 +350,7 @@ def neira():
             break
 
         keyword_dikenali = False
+
 
         # ==================== LOGIKA MEMORI BARU (PERBAIKAN BUG) ====================
 
@@ -261,19 +455,29 @@ def neira():
         if "tambah tugas" in perintah:
             nama_tugas = perintah.replace("tambah tugas", "").strip()
             if nama_tugas:
-                tambah_tugas(nama_tugas)
+                add_tasks(nama_tugas)
             else:
                 print("Neira: Tugasnya apa? Tulis contoh: 'tambah tugas belajar'")
             keyword_dikenali = True
 
+                # Tambahkan logika ini di dalam while True pada fungsi infinite_assistant()
+        if (
+            "lihat statistik" in perintah
+            or "cek produktivitas" in perintah
+            or "statistik" in perintah
+        ):
+            view_statistics()
+            keyword_dikenali = True
+
+
         if "lihat tugas" in perintah or "list tugas" in perintah:
-            lihat_tugas()
+            view_tasks()
             keyword_dikenali = True
 
         if "selesai tugas" in perintah:
             try:
                 nomor = int(perintah.replace("selesai tugas", "").strip())
-                tandai_selesai(nomor)
+                mark_done(nomor)
             except ValueError:
                 print(
                     "Neira: Tolong masukkan nomor tugasnya. Contoh: 'selesai tugas 1'"
@@ -283,7 +487,7 @@ def neira():
         if "hapus tugas" in perintah:
             try:
                 nomor = int(perintah.replace("hapus tugas", "").strip())
-                hapus_tugas(nomor)
+                delete_tasks(nomor)
             except ValueError:
                 print(
                     "Neira: Tolong masukkan nomor tugasnya. Contoh: 'hapus tugas 2'"

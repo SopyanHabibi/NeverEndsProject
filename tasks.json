@@ -1,0 +1,37 @@
+[
+    {
+        "id": 1,
+        "tugas": "fungsi double keyword (menyapa kembali dan menanyakan kabar)",
+        "status": "selesai",
+        "waktu_ditambahkan": "2026-06-07 12:54:23",
+        "waktu_selesai": "2026-06-07 12:58:13"
+    },
+    {
+        "id": 2,
+        "tugas": "bikin memori (biar ai bisa ingat)",
+        "status": "selesai",
+        "waktu_ditambahkan": "2026-06-07 12:54:39",
+        "waktu_selesai": "2026-06-07 12:59:44"
+    },
+    {
+        "id": 3,
+        "tugas": "statistik produktivitas",
+        "status": "selesai",
+        "waktu_ditambahkan": "2026-06-07 12:56:56",
+        "waktu_selesai": "2026-06-07 14:07:55"
+    },
+    {
+        "id": 4,
+        "tugas": "jadwal harian",
+        "status": "belum selesai",
+        "waktu_ditambahkan": "2026-06-07 12:57:04",
+        "waktu_selesai": null
+    },
+    {
+        "id": 5,
+        "tugas": "cuaca",
+        "status": "belum selesai",
+        "waktu_ditambahkan": "2026-06-07 12:57:09",
+        "waktu_selesai": null
+    }
+]
