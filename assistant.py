@@ -42,6 +42,7 @@ def cek_typo_nama(perintah_user):
         "niera",
         "neyra",
         "nera",
+        "nira",
         "neirra",
         "najra",
         "neisa",
