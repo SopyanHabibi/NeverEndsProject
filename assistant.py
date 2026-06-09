@@ -79,13 +79,80 @@ def read_jadwal():
         return json.load(file)
 
 
-def save_jadwal():
+def save_all_jadwal(daftar_jadwal):
     """Menulis ulang seluruh daftar jadwal ke file JSON."""
     with open(FILE_JADWAL, "w") as file:
         json.dump(daftar_jadwal, file, indent=4)
 
 
+def add_jadwal(jam_input, nama_agenda):
+    """Menambahkan agenda baru berdasarkan jam yang ditentukan user."""
+    # validasi format jam sederhana (harus mengandung titik dua, misal 12:00)
+    if ":" not in jam_input or len(jam_input) != 5:
+        print(
+            "Neira: Format jam salah. Tolong tulis dengan format 24 jam HH:MM. Contoh: '12:00'"
+        )
+        return
 
+    daftar = read_jadwal()
+    agenda_baru = {"jam": jam_input, "agenda": nama_agenda, "status": "mendatang"}
+    daftar.append(agenda_baru)
+    daftar.sort(key=lambda x: x["jam"])  # Urutkan berdasarkan format 24 jam
+    save_all_jadwal(daftar)
+
+    # Mengubah tampilan konfirmasi ke AM/PM agar estetik
+    jam_objek = datetime.datetime.strptime(jam_input, "%H:%M")
+    jam_ampm = jam_objek.strftime("%I:%M %p")
+
+    print(
+        f"Neira: Dimengerti! Agenda '{nama_agenda}' di jam {jam_ampm} sudah saya catat."
+    )
+
+
+# 3. Perbaikan Cek Agenda Mendatang (Menampilkan AM/PM ke Layar)
+def cek_agenda_mendatang():
+    daftar = read_jadwal()
+    if not daftar:
+        print("Neira: Jadwal harianmu hari ini masih kosong.")
+        return
+
+    waktu_sekarang = datetime.datetime.now()
+    waktu_sekarang_teks = waktu_sekarang.strftime("%H:%M")
+    waktu_sekarang_ampm = waktu_sekarang.strftime("%I:%M %p")
+
+    print(f"Neira: Sekarang jam {waktu_sekarang_ampm}.")
+    ada_agenda_nanti = False
+    print("\n📅 AGENDA KAMU BERIKUTNYA HARI INI:")
+
+    for j in daftar:
+        if j["jam"] > waktu_sekarang_teks:
+            # KONVERSI DI SINI: Jam 24 jam dari JSON diubah ke AM/PM sebelum di-print
+            jam_objek = datetime.datetime.strptime(j["jam"], "%H:%M")
+            jam_ampm = jam_objek.strftime("%I:%M %p")
+
+            print(f"⏰ Jam {jam_ampm} -> {j['agenda']}")
+            ada_agenda_nanti = True
+
+    if not ada_agenda_nanti:
+        print(
+            "Neira: Untuk sisa hari ini, kamu tidak punya agenda lagi. Waktunya santai!"
+        )
+
+
+# 4. Perbaikan Lihat Semua Jadwal (Menampilkan AM/PM ke Layar)
+def lihat_semua_jadwal():
+    daftar = read_jadwal()
+    if not daftar:
+        print("Neira: Belum ada jadwal harian yang tercatat.")
+        return
+
+    print("\n🗓️ SELURUH JADWAL HARIAN KAMU:")
+    print("==============================")
+    for j in daftar:
+        # Mengubah format 24 jam ke AM/PM saat ditampilkan
+        jam_objek = datetime.datetime.strptime(j["jam"], "%H:%M")
+        jam_ampm = jam_objek.strftime("%I:%M %p")
+        print(f"• [{jam_ampm}] {j['agenda']}")
 
 
 
@@ -146,23 +213,24 @@ def save_tasks(daftar_tugas):
 def add_tasks(nama_tugas):
     """Menambahkan tugas baru dengan metadata waktu buat."""
     daftar = read_tasks()
+    id_baru = len(daftar) + 1
 
     # Membuat ID otomatis berdasarkan jumlah tugas yang ada
-    id_baru = len(daftar) + 1
-    waktu_sekarang = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    waktu_sekarang = datetime.datetime.now()
+    waktu_24j = waktu_sekarang.strftime("%Y-%m-%d %H:%M:%S")
+    waktu_ampm = waktu_sekarang.strftime("%Y-%m-%d %I:%M %p")
 
     tugas_baru = {
         "id": id_baru,
         "tugas": nama_tugas,
         "status": "belum selesai",
-        "waktu_dibuat": waktu_sekarang,
+        "waktu_dibuat": waktu_24j,
         "waktu_selesai": None,
     }
-
     daftar.append(tugas_baru)
     save_tasks(daftar)
     print(
-        f"Neira: Siap! '{nama_tugas}' dimasukkan ke daftar pada {waktu_sekarang}."
+        f"Neira: Siap! '{nama_tugas}' dimasukkan ke daftar pada {waktu_ampm}."
     )
 
 
@@ -372,6 +440,45 @@ def neira():
             continue
 
 
+                # ==================== LOGIKA JADWAL HARIAN ====================
+
+        # Perintah 1: Menambahkan Jadwal Baru
+        # Contoh input: "jadwal jam 12:00 agenda makan siang"
+        if "tambah jadwal" in perintah or (
+            "jadwal jam" in perintah and "agenda" in perintah
+        ):
+            try:
+                # Memotong teks untuk mengambil jam dan nama agenda secara otomatis
+                # Menggunakan trik pemisahan kata kunci string
+                bagian_jam = perintah.split("jam ")[1].split("agenda ")[0].strip()
+                bagian_agenda = perintah.split("agenda ")[1].strip()
+
+                add_jadwal(bagian_jam, bagian_agenda)
+            except IndexError:
+                print(
+                    "Neira: Pola perintah salah. Tulis contohnya seperti ini:\n'jadwal jam 12:00 agenda makan siang'"
+                )
+            keyword_dikenali = True
+
+        # Perintah 2: Menanyakan Kegiatan Nanti/Mendatang
+        elif (
+            "apa kegiatan nanti" in perintah
+            or "jadwal nanti" in perintah
+            or "agenda berikutnya" in perintah
+        ):
+            cek_agenda_mendatang()  # Memanggil fungsi pendeteksi waktu
+            keyword_dikenali = True
+
+        # Perintah 3: Melihat Seluruh Jadwal Hari Ini
+        elif (
+            "lihat jadwal" in perintah
+            or "lihat semua jadwal" in perintah
+            or "list jadwal" in perintah
+        ):
+            lihat_semua_jadwal()
+            keyword_dikenali = True
+
+
         # ==================== LOGIKA MEMORI BARU (DENGAN RINGKASAN) ====================
 
         # 1. Perintah Ringkasan Profil (Menu Status Player)
@@ -501,6 +608,8 @@ def neira():
             print(
                 "Neira: Maaf, saya belum memahami perintah itu. Maklum, saya masih versi basic!"
             )
+
+
 
 
 # Menjalankan assistant

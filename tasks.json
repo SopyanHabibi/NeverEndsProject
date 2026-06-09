@@ -23,9 +23,9 @@
     {
         "id": 4,
         "tugas": "jadwal harian",
-        "status": "belum selesai",
+        "status": "selesai",
         "waktu_ditambahkan": "2026-06-07 12:57:04",
-        "waktu_selesai": null
+        "waktu_selesai": "2026-06-10 00:29:24"
     },
     {
         "id": 5,
@@ -40,5 +40,12 @@
         "status": "selesai",
         "waktu_dibuat": "2026-06-07 22:56:44",
         "waktu_selesai": "2026-06-07 23:21:09"
+    },
+    {
+        "id": 7,
+        "tugas": "benerin fitur input jam",
+        "status": "belum selesai",
+        "waktu_dibuat": "2026-06-10 00:29:14",
+        "waktu_selesai": null
     }
 ]
