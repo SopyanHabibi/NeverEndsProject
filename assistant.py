@@ -8,6 +8,7 @@ from playsound import playsound
 
 FILE_TASKS = "tasks.json"
 FILE_MEMORI = "memory.json"
+FILE_JADWAL = "jadwal.json"
 
 # ==================== FITUR BARU: MEMORI ASISTEN ====================
 def inisialisasi_memori():
@@ -61,6 +62,32 @@ def cek_typo_nama(perintah_user):
 
 
 # ===================================================================
+
+
+# ==================== FITUR BARU: JADWAL HARIAN (QUEST LOG) ====================
+def load_jadwal():
+    """Membuat file jadwal.json default jika belum ada"""
+    if not os.path.exists(FILE_JADWAL):
+        with open(FILE_JADWAL, "w") as file:
+            json.dump([], file, indent=4)
+
+
+def read_jadwal():
+    """Membaca daftar jadwal dari file JSON"""
+    load_jadwal()
+    with open(FILE_JADWAL, "r") as file:
+        return json.load(file)
+
+
+def save_jadwal():
+    """Menulis ulang seluruh daftar jadwal ke file JSON."""
+    with open(FILE_JADWAL, "w") as file:
+        json.dump(daftar_jadwal, file, indent=4)
+
+
+
+
+
 
 def sapa_user():
     """Fungsi untuk menyapa pengguna berdasarkan waktu saat ini."""
