@@ -6,6 +6,7 @@ def cek_typo_nama(perintah_user):
     # daftar variasi typo yang paling sering terjadi untuk nama 'Neira'
     daftar_typo = [
         "neria",
+        "neriaa",
         "niera",
         "neyra",
         "nera",

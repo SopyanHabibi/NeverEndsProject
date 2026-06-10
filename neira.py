@@ -23,24 +23,24 @@ def sapa_user():
 
     jam = datetime.datetime.now().hour
     if jam < 12:
-        print(f"Neira: Selamat pagi, {nama_user}! Semangat produktifnya hari ini.")
+        print(f"Neira: Halo {nama_user}! Semangat produktifnya hari ini.")
     elif 12 <= jam < 18:
-        print(f"Neira: Selamat siang/sore, {nama_user}! Ada yang bisa saya bantu?")
+        print(f"Neira: Halo {nama_user}! Ada yang bisa aku bantu?")
     else:
-        print(f"Neira: Selamat malam, {nama_user}! Jangan lupa istirahat yang cukup ya.")
+        print(f"Neira: Halo {nama_user}! Jangan lupa istirahat yang cukup ya.")
 
 
 def set_reminder(menit):
     """Fungsi untuk menahan program dan memunculkan pengingat suara."""
     detik = menit * 60
-    print(f"Neira: Baik, saya akan mengingatkanmu dalam {menit} menit.")
+    print(f"Neira: Baik, aku akan mengingatkanmu dalam {menit} menit.")
     time.sleep(detik)
 
     print(f"Neira: WAKTU HABIS!!!")
     try:
         playsound('alarm.wav')
     except Exception as e:
-        print(f"Neira: Maaf, saya tidak dapat memainkan suara alarm. Error: {e}")
+        print(f"Neira: Maaf, aku tidak dapat memainkan suara alarm. Error: {e}")
 
 
 # ==================== CORE UTAMA NEIRA ====================
@@ -49,9 +49,9 @@ def neira():
     # Ambil nama user untuk sapaan pembuka pertama kali
     try:
         data_user = profil.baca_memori()
-        nama_ksatria = data_user.get("nama", "Ksatria")
+        nama_ksatria = data_user.get("nama", "kamu")
     except Exception:
-        nama_ksatria = "Ksatria"
+        nama_ksatria = "kamu"
 
     # --- OUTPUT BARU SAAT PERTAMA KALI DIJALANKAN ---
     print(f"🤖 Neira Engine v2.0: Online.")
@@ -81,8 +81,8 @@ def neira():
             keyword_dikenali = True
             continue
             
-        elif any(x in perintah for x in ["apa kabar", "bagaimana kabarmu", "kamu apa kabar"]):
-            print("Neira: Saya sebagai asisten digitalmu selalu siap dan dalam kondisi prima! Bagaimana dengan kabarmu hari ini?")
+        elif any(x in perintah for x in ["apa kabar", "bagaimana kabarmu", "kamu apa kabar", "gimana kabarmu"]):
+            print("Neira: Aku baik-baik aja, kalo kamu gimana?")
             keyword_dikenali = True
             continue
 
@@ -94,14 +94,19 @@ def neira():
             continue
             
         elif "buka google" in perintah:
-            print("Neira: Baik, membuka Google di browsermu...")
+            print("Neira: Okeyy, membuka Google di browsermu...")
             webbrowser.open("https://www.google.com")
             keyword_dikenali = True
             continue
             
         elif "buka youtube" in perintah:
-            print("Neira: Baik, membuka YouTube...")
+            print("Neira: Okeyy, membuka YouTube...")
             webbrowser.open("https://www.youtube.com")
+            keyword_dikenali = True
+
+        elif "buka instagram" in perintah or "buka ig" in perintah:
+            print("Neira: Okeyy, membuka Instagram...")
+            webbrowser.open("https://www.Instagram.com/_sop.ayam")
             keyword_dikenali = True
             continue
 
@@ -117,7 +122,7 @@ def neira():
                     kategori = bagian_depan[:-2] 
                     if isi_data.strip():
                         profil.simpan_memori(kategori, isi_data.strip())
-                        print(f"Neira: Catat! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}.")
+                        print(f"Neira: Sipp! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}.")
                         keyword_dikenali = True
                         continue
             except ValueError:
