@@ -44,8 +44,15 @@
     {
         "id": 7,
         "tugas": "benerin fitur input jam",
-        "status": "belum selesai",
+        "status": "selesai",
         "waktu_dibuat": "2026-06-10 00:29:14",
-        "waktu_selesai": null
+        "waktu_selesai": "2026-06-10 16:03:06"
+    },
+    {
+        "id": 8,
+        "tugas": "pisahkan kode ke dalam beberapa file",
+        "status": "selesai",
+        "waktu_dibuat": "2026-06-10 16:03:43",
+        "waktu_selesai": "2026-06-10 17:20:16"
     }
 ]

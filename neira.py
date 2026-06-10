@@ -1,0 +1,185 @@
+import datetime
+import json
+import os
+import time
+import webbrowser
+from playsound import playsound
+
+# Meng-import fitur-fitur modular Neira
+from fitur import utilitas, profil, produktivitas, jadwal
+
+# ==================== FITUR KELOLA TERMINAL & REMINDER ====================
+def bersihkan_terminal():
+    """Membersihkan layar terminal biar rapi."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def sapa_user():
+    """Fungsi untuk menyapa pengguna berdasarkan waktu saat ini."""
+    try:
+        data = profil.baca_memori()  
+        nama_user = data.get("nama", "kamu")
+    except Exception:
+        nama_user = "kamu"
+
+    jam = datetime.datetime.now().hour
+    if jam < 12:
+        print(f"Neira: Selamat pagi, {nama_user}! Semangat produktifnya hari ini.")
+    elif 12 <= jam < 18:
+        print(f"Neira: Selamat siang/sore, {nama_user}! Ada yang bisa saya bantu?")
+    else:
+        print(f"Neira: Selamat malam, {nama_user}! Jangan lupa istirahat yang cukup ya.")
+
+
+def set_reminder(menit):
+    """Fungsi untuk menahan program dan memunculkan pengingat suara."""
+    detik = menit * 60
+    print(f"Neira: Baik, saya akan mengingatkanmu dalam {menit} menit.")
+    time.sleep(detik)
+
+    print(f"Neira: WAKTU HABIS!!!")
+    try:
+        playsound('alarm.wav')
+    except Exception as e:
+        print(f"Neira: Maaf, saya tidak dapat memainkan suara alarm. Error: {e}")
+
+
+# ==================== CORE UTAMA NEIRA ====================
+def neira():
+    bersihkan_terminal()
+    # Ambil nama user untuk sapaan pembuka pertama kali
+    try:
+        data_user = profil.baca_memori()
+        nama_ksatria = data_user.get("nama", "Ksatria")
+    except Exception:
+        nama_ksatria = "Ksatria"
+
+    # --- OUTPUT BARU SAAT PERTAMA KALI DIJALANKAN ---
+    print(f"🤖 Neira Engine v2.0: Online.")
+    print(f"⚙️  Systems: Semua fitur modular berhasil dimuat, {nama_ksatria}.")
+    print("------------------------------------------------------------------")
+
+    while True:
+        perintah = input("\nKamu: ").lower().strip()
+
+        if "keluar" in perintah or "dadah" in perintah or "exit" in perintah:
+            print("Neira: Sampai jumpa lagi! Semangat produktifnya ya.")
+            break
+        if perintah == "":
+            continue
+
+        keyword_dikenali = False
+
+        # 1. PENCEGATAN TYPO NAMA
+        if utilitas.cek_typo_nama(perintah):
+            print("Neira: Hmm... Mungkin maksudmu 'Neira'? Typo sedikit tuh, hehe.")
+            keyword_dikenali = True
+            continue
+
+        # 2. FITUR FAVORIT: MENYAPA & MENANYAKAN KABAR
+        if any(x in perintah for x in ["halo", "hai", "hi", "pagi", "siang", "sore", "malam"]):
+            sapa_user()
+            keyword_dikenali = True
+            continue
+            
+        elif any(x in perintah for x in ["apa kabar", "bagaimana kabarmu", "kamu apa kabar"]):
+            print("Neira: Saya sebagai asisten digitalmu selalu siap dan dalam kondisi prima! Bagaimana dengan kabarmu hari ini?")
+            keyword_dikenali = True
+            continue
+
+        # 3. FITUR UTENSIL: CEK JAM UTAMA & BUKA BROWSER
+        elif "jam berapa" in perintah or "cek jam" in perintah:
+            waktu_sekarang = datetime.datetime.now().strftime("%I:%M %p")
+            print(f"Neira: Sekarang jam {waktu_sekarang}.")
+            keyword_dikenali = True
+            continue
+            
+        elif "buka google" in perintah:
+            print("Neira: Baik, membuka Google di browsermu...")
+            webbrowser.open("https://www.google.com")
+            keyword_dikenali = True
+            continue
+            
+        elif "buka youtube" in perintah:
+            print("Neira: Baik, membuka YouTube...")
+            webbrowser.open("https://www.youtube.com")
+            keyword_dikenali = True
+            continue
+
+        # 4. SEKTOR PROFIL & MEMORI (DINAMIS)
+        if any(x in perintah for x in ["siapa aku", "ringkas tentangku", "profilku"]):
+            profil.ringkas_profil()
+            keyword_dikenali = True
+            continue
+        elif "ku " in perintah:
+            try:
+                bagian_depan, isi_data = perintah.split(" ", 1)
+                if bagian_depan.endswith("ku"):
+                    kategori = bagian_depan[:-2] 
+                    if isi_data.strip():
+                        profil.simpan_memori(kategori, isi_data.strip())
+                        print(f"Neira: Catat! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}.")
+                        keyword_dikenali = True
+                        continue
+            except ValueError:
+                pass
+
+        # 5. SEKTOR TO-DO LIST (PRODUKTIVITAS)
+        if "tambah tugas" in perintah:
+            tugas_baru = perintah.replace("tambah tugas", "").strip()
+            produktivitas.add_tasks(tugas_baru)
+            keyword_dikenali = True
+            continue
+        elif "lihat tugas" in perintah:
+            produktivitas.view_tasks()
+            keyword_dikenali = True
+            continue
+        elif "selesai tugas" in perintah or "selesai no" in perintah:
+            try:
+                # Mengambil nomor tugas (misal: "selesai tugas 2" -> "2")
+                nomor = int("".join(filter(str.isdigit, perintah)))
+                produktivitas.mark_done(nomor)
+            except ValueError:
+                print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'selesai tugas 1'")
+            keyword_dikenali = True
+            continue
+        elif "hapus tugas" in perintah or "hapus no" in perintah:
+            try:
+                # Mengambil nomor tugas (misal: "hapus tugas 1" -> "1")
+                nomor = int("".join(filter(str.isdigit, perintah)))
+                produktivitas.hapus_tugas(nomor)
+            except ValueError:
+                print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'hapus tugas 1'")
+            keyword_dikenali = True
+            continue
+        elif "lihat statistik" in perintah or "statistik" in perintah:
+            produktivitas.view_statistics()
+            keyword_dikenali = True
+            continue
+
+        # 6. SEKTOR JADWAL HARIAN (QUEST LOG)
+        if "tambah jadwal" in perintah or ("jadwal jam" in perintah and "agenda" in perintah):
+            try:
+                bagian_jam = perintah.split("jam ")[1].split("agenda ")[0].strip()
+                bagian_agenda = perintah.split("agenda ")[1].strip()
+                jadwal.add_jadwal(bagian_jam, bagian_agenda)
+            except IndexError:
+                print("Neira: Pola salah. Contoh: 'jadwal jam 01:00 siang agenda ngoding'")
+            keyword_dikenali = True
+            continue
+        elif any(x in perintah for x in ["apa kegiatan nanti", "jadwal nanti"]):
+            jadwal.cek_agenda_mendatang()
+            keyword_dikenali = True
+            continue
+        elif "lihat jadwal" in perintah:
+            jadwal.lihat_semua_jadwal()
+            keyword_dikenali = True
+            continue
+
+        # JIKA PERINTAH GAIB
+        if not keyword_dikenali:
+            print("Neira: Perintah tidak dikenali. Coba ketik 'profilku' atau 'jadwal nanti'.")
+
+
+# Menjalankan assistant
+if __name__ == "__main__":
+    neira()
