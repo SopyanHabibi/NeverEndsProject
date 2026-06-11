@@ -88,7 +88,7 @@ def lihat_semua_jadwal():
         print("Neira: Belum ada jadwal harian yang tercatat.")
         return
 
-    print("\n🗓️ SELURUH JADWAL HARIAN KAMU:")
+    print("\n🗓️  SELURUH JADWAL HARIAN KAMU:")
     print("==============================")
     for j in daftar:
         # Mengubah format 24 jam ke AM/PM saat ditampilkan

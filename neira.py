@@ -6,7 +6,7 @@ import webbrowser
 from playsound import playsound
 
 # Meng-import fitur-fitur modular Neira
-from fitur import utilitas, profil, produktivitas, jadwal
+from fitur import utilitas, profil, produktivitas, jadwal, fokus
 
 # ==================== FITUR KELOLA TERMINAL & REMINDER ====================
 def bersihkan_terminal():
@@ -156,6 +156,26 @@ def neira():
                 print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'hapus tugas 1'")
             keyword_dikenali = True
             continue
+        # SEKTOR SESI FOKUS (AUTOMATED MULTI-THREADING)
+        if "mulai sesi fokus" in perintah:
+            try:
+                menit = int("".join(filter(str.isdigit, perintah)))
+                fokus.mulai_sesi(menit)
+            except ValueError:
+                print("Neira: Masukkan angka menit yang jelas. Contoh: 'mulai sesi fokus 45 menit'")
+            keyword_dikenali = True
+            continue
+            
+        elif "batalkan sesi" in perintah or "stop sesi" in perintah:
+            fokus.batalkan_sesi()
+            keyword_dikenali = True
+            continue
+            
+        elif "laporan sesi fokus" in perintah or "lihat laporan sesi fokus" in perintah:
+            fokus.lihat_statistik_fokus()
+            keyword_dikenali = True
+            continue
+        
         elif "lihat statistik" in perintah or "statistik" in perintah:
             produktivitas.view_statistics()
             keyword_dikenali = True
@@ -180,9 +200,6 @@ def neira():
             keyword_dikenali = True
             continue
 
-        # JIKA PERINTAH GAIB
-        if not keyword_dikenali:
-            print("Neira: Perintah tidak dikenali. Coba ketik 'profilku' atau 'jadwal nanti'.")
 
 
 # Menjalankan assistant

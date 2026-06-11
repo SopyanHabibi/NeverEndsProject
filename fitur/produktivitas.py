@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 from config import FILE_TASKS
+from config import FILE_SESI_FOKUS
 
 def load_tasks():
     """Membuat file tasks.json default jika belum ada."""
@@ -99,6 +100,42 @@ def delete_tasks(nomor):
 
     save_tasks(tugas_baru)
     print(f"Neira: Tugas nomor {nomor} berhasil dihapus.")
+
+
+# def load_sesi():
+#     """Membuat file sesi_fokus.json default jika belum ada."""
+#     if not os.path.exists(FILE_SESI_FOKUS):
+#         with open(FILE_SESI_FOKUS, "w") as file:
+#             json.dump([], file, indent=4)
+
+
+# def simpan_sesi_fokus(durasi_menit):
+#     """Menyimpan data mentah sesi fokus ke dalam database JSON."""
+#     # membaca data
+#     try:
+#         with open(FILE_TASKS, "r") as file:
+#             data = json.load(file)
+#     except (FileNotFoundError, json.JSONDecodeError):
+#         data = {"tugas": [], "sesi_fokus": []}
+
+#     # kunci "sesi_fokus" ada di dalam dict
+#     if "sesi_fokus" not in data:
+#         data["sesi_fokus"] = []
+
+#     now = datetime.datetime.now()
+#     start_time = now - datetime.timedelta(minutes=durasi_menit)
+
+#     # format data mentah yang akan disimpan
+#     sesi_baru = {
+#         "tanggal": now.strftime("%Y-%m-%d"),
+#         "mulai": start_time.strftime("%H:%M:%S"),
+#         "selesai": now.strftime("%H:%M:%S"),
+#         "durasi_menit": durasi_menit
+#     }
+
+#     data["sesi_fokus"].append(sesi_baru)
+
+#     with open(FILE_TASKS, "w") as file:
 
 
 def view_statistics():
