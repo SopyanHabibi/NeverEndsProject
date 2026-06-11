@@ -28,7 +28,7 @@ def ringkas_profil():
     data = baca_memori()
     
     print("\n===========================================")
-    print("   👤 PROFIL PENGGUNA (DIINGAT OLEH NEIRA)  ")
+    print("  👤 PROFIL PENGGUNA (DIINGAT OLEH NEIRA)  ")
     print("===========================================")
     
     if not data:
@@ -40,8 +40,8 @@ def ringkas_profil():
     for kunci, nilai in data.items():
         # Mengubah format kunci agar rapi (misal: "makanan_favorit" -> "MAKANAN FAVORIT")
         kunci_rapi = kunci.replace("_", " ").upper()
-        print(f"➤ {kunci_rapi} : {nilai}")
+        print(f"➤  {kunci_rapi} : {nilai}")
 
     print("-------------------------------------------")
-    print(f"Neira: Total ada {len(data)} informasi tentangmu yang tersimpan.")
+    # print(f"Neira: Total ada {len(data)} informasi tentangmu yang tersimpan.")
     print("===========================================")
