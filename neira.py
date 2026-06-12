@@ -139,6 +139,18 @@ def neira():
             sistem.buka_workspace("kuliah")
             keyword_dikenali = True
             continue
+        
+        elif "buka folder" in perintah:
+            # mengambil kata setelah "buka folder"
+            # Contoh: "buka folder kuliah" -> "kuliah"
+            target_folder = perintah.replace("buka folder", "").strip()
+
+            if target_folder:
+                sistem.buka_folder(target_folder)
+            else:
+                print("Neira: Folder apa yang mau dibuka? Contoh: 'buka folder kuliah' atau 'buka folder project'.")
+                keyword_dikenali = True
+                continue
 
         # 4. SEKTOR PROFIL & MEMORI (DINAMIS)
         if any(x in perintah for x in ["siapa aku", "ringkas tentangku", "profilku"]):

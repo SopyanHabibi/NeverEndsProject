@@ -59,3 +59,29 @@ def buka_workspace(nama_workspace):
         print(f"Neira: Workspace {nama_workspace} berhasil dibuka!")
     else:
         print(f"Neira: Workspace '{nama_workspace}' tidak ditemukan. Coba 'ngoding' atau 'kuliah'.")
+        
+def buka_folder(nama_folder):
+    """Membuka folder spesifik di File Explorer berdasarkan shortcut dari user."""
+    username_pc = os.getlogin()
+
+    # Peta alamat folder
+    peta_folder = {
+        "kuliah": rf"D:\Kuliah",
+        "project": rf"D:\Kuliah\NeverEndProjects",
+        "download": f"C:\\Users\\{username_pc}\\Downloads",
+        "documents": f"C:\\Users\\{username_pc}\\Documents"
+    }
+    
+    if nama_folder in peta_folder:
+        path_target = peta_folder[nama_folder]
+
+        # pastikan folder ada di dalam laptop
+        if os.path.exists(path_target):
+            print(f"Neira: Okeyy, membuka folder {nama_folder.upper()}...")
+            # memanggil explorer.exe diikuti dengan alamat folder target
+            subprocess.Popen(f'explorer "{path_target}"')
+        else:
+            print(f"❌ Neira: Folder '{nama_folder}' tidak ditemukan di jalur: {path_target}")
+            print("💡 Tips: SINKRONKAN alamat foldermu terlebih dahulu di 'fitur/sistem.py'.")
+    else:
+        print(f"Neira: Folder '{nama_folder}' belum terdaftar. Kamu bisa mendaftarkannya di fitur/sistem.py.")
