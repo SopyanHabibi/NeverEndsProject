@@ -85,3 +85,25 @@ def buka_folder(nama_folder):
             print("💡 Tips: SINKRONKAN alamat foldermu terlebih dahulu di 'fitur/sistem.py'.")
     else:
         print(f"Neira: Folder '{nama_folder}' belum terdaftar. Kamu bisa mendaftarkannya di fitur/sistem.py.")
+        
+def atur_shutdown_timer(menit):
+    """Mengatur waktu hitung mundur untuk mematikan laptop otomatis."""
+    # konversi menit ke detik karena argumen windows menggunakan satuan detik
+    detik = menit * 60
+    
+    try:
+        # /s = shutdown, /t = waktu tunggu dalam detik
+        subprocess.Popen(f"shutdown /s /t {detik}", shell=True)
+        print(f"⚠️ Neira: SISTEM AKAN MATI OTOMATIS DALAM {menit} MENIT!")
+        print("💡 Tips: Jika ingin membatalkan, ketik perintah 'batal matikan laptop'.")
+    except Exception as e:
+        print(f"❌ Neira: Gagal mengatur timer shutdown. Error: {e}")
+        
+def batalkan_shutdown():
+    """Membatalkan perintah shutdown yang sedang berjalan."""
+    try:
+        # /a = abort (batalkan perintah shutdown)
+        subprocess.Popen("shutdown /a", shell=True)
+        print("✅ Neira: Perintah otomatisasi shutdown BERHASIL DIBATALKAN. Laptop aman!")
+    except Exception:
+        print("❌ Neira: Gagal membatalkan. Mungkin memang tidak ada timer yang aktif saat ini.")

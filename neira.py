@@ -151,6 +151,21 @@ def neira():
                 print("Neira: Folder apa yang mau dibuka? Contoh: 'buka folder kuliah' atau 'buka folder project'.")
                 keyword_dikenali = True
                 continue
+            
+        elif "matikan laptop dalam" in perintah or "matikan pc dalam" in perintah:
+            try:
+                # Mengambil angka menit (misal: "matikan laptop dalam 30 menit" -> 30)
+                menit = int("".join(filter(str.isdigit, perintah)))
+                sistem.atur_shutdown_timer(menit)
+            except ValueError:
+                print("Neira: Tolong sebutkan menitnya dengan jelas. Contoh: 'matikan laptop dalam 30 menit")
+            keyword_dikenali = True
+            continue
+        
+        elif "batal matikan" in perintah or "batalkan shutdown" in perintah:
+            sistem.batalkan_shutdown()
+            keyword_dikenali = True
+            continue
 
         # 4. SEKTOR PROFIL & MEMORI (DINAMIS)
         if any(x in perintah for x in ["siapa aku", "ringkas tentangku", "profilku"]):
