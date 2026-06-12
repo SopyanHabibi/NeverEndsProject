@@ -61,5 +61,26 @@
         "status": "selesai",
         "waktu_dibuat": "2026-06-11 17:11:06",
         "waktu_selesai": "2026-06-11 20:42:17"
+    },
+    {
+        "id": 10,
+        "tugas": "bikin kontrol aplikasi komputer",
+        "status": "belum selesai",
+        "waktu_dibuat": "2026-06-12 20:53:36",
+        "waktu_selesai": null
+    },
+    {
+        "id": 11,
+        "tugas": "bikin aplikasi cuaca",
+        "status": "belum selesai",
+        "waktu_dibuat": "2026-06-12 20:53:44",
+        "waktu_selesai": null
+    },
+    {
+        "id": 12,
+        "tugas": "bikin voice input untuk neira",
+        "status": "belum selesai",
+        "waktu_dibuat": "2026-06-12 20:53:56",
+        "waktu_selesai": null
     }
 ]

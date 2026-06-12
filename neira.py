@@ -6,7 +6,7 @@ import webbrowser
 from playsound import playsound
 
 # Meng-import fitur-fitur modular Neira
-from fitur import utilitas, profil, produktivitas, jadwal, fokus
+from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem
 
 # ==================== FITUR KELOLA TERMINAL & REMINDER ====================
 def bersihkan_terminal():
@@ -107,6 +107,36 @@ def neira():
         elif "buka instagram" in perintah or "buka ig" in perintah:
             print("Neira: Okeyy, membuka Instagram...")
             webbrowser.open("https://www.Instagram.com/_sop.ayam")
+            keyword_dikenali = True
+            continue
+        
+        elif "buka chrome" in perintah:
+            sistem.buka_aplikasi("chrome")
+            keyword_dikenali = True
+            continue
+        
+        elif "buka vscode" in perintah or "buka vs code" in perintah:
+            sistem.buka_aplikasi("vscode")
+            keyword_dikenali = True
+            continue
+        
+        elif "buka notepad" in perintah:
+            sistem.buka_aplikasi("notepad")
+            keyword_dikenali = True
+            continue
+            
+        elif "buka kalkulator" in perintah:
+            sistem.buka_aplikasi("calc")
+            keyword_dikenali = True
+            continue
+        
+        elif "mode ngoding" in perintah or "waktunya ngoding" in perintah:
+            sistem.buka_workspace("ngoding")
+            keyword_dikenali = True
+            continue
+
+        elif "mode kuliah" in perintah or "waktunya belajar" in perintah:
+            sistem.buka_workspace("kuliah")
             keyword_dikenali = True
             continue
 
