@@ -29,55 +29,48 @@
     },
     {
         "id": 5,
-        "tugas": "cuaca",
-        "status": "belum selesai",
-        "waktu_ditambahkan": "2026-06-07 12:57:09",
-        "waktu_selesai": null
-    },
-    {
-        "id": 6,
         "tugas": "rapikan kode",
         "status": "selesai",
         "waktu_dibuat": "2026-06-07 22:56:44",
         "waktu_selesai": "2026-06-07 23:21:09"
     },
     {
-        "id": 7,
+        "id": 6,
         "tugas": "benerin fitur input jam",
         "status": "selesai",
         "waktu_dibuat": "2026-06-10 00:29:14",
         "waktu_selesai": "2026-06-10 16:03:06"
     },
     {
-        "id": 8,
+        "id": 7,
         "tugas": "pisahkan kode ke dalam beberapa file",
         "status": "selesai",
         "waktu_dibuat": "2026-06-10 16:03:43",
         "waktu_selesai": "2026-06-10 17:20:16"
     },
     {
-        "id": 9,
+        "id": 8,
         "tugas": "bikin sesi fokus",
         "status": "selesai",
         "waktu_dibuat": "2026-06-11 17:11:06",
         "waktu_selesai": "2026-06-11 20:42:17"
     },
     {
-        "id": 10,
+        "id": 9,
         "tugas": "bikin kontrol aplikasi komputer",
         "status": "belum selesai",
         "waktu_dibuat": "2026-06-12 20:53:36",
         "waktu_selesai": null
     },
     {
-        "id": 11,
+        "id": 10,
         "tugas": "bikin aplikasi cuaca",
         "status": "belum selesai",
         "waktu_dibuat": "2026-06-12 20:53:44",
         "waktu_selesai": null
     },
     {
-        "id": 12,
+        "id": 11,
         "tugas": "bikin voice input untuk neira",
         "status": "belum selesai",
         "waktu_dibuat": "2026-06-12 20:53:56",

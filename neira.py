@@ -6,7 +6,7 @@ import webbrowser
 from playsound import playsound
 
 # Meng-import fitur-fitur modular Neira
-from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem
+from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca
 
 # ==================== FITUR KELOLA TERMINAL & REMINDER ====================
 def bersihkan_terminal():
@@ -208,7 +208,7 @@ def neira():
             try:
                 # Mengambil nomor tugas (misal: "hapus tugas 1" -> "1")
                 nomor = int("".join(filter(str.isdigit, perintah)))
-                produktivitas.hapus_tugas(nomor)
+                produktivitas.delete_tasks(nomor)
             except ValueError:
                 print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'hapus tugas 1'")
             keyword_dikenali = True
@@ -254,6 +254,12 @@ def neira():
             continue
         elif "lihat jadwal" in perintah:
             jadwal.lihat_semua_jadwal()
+            keyword_dikenali = True
+            continue
+        
+        # SEKTOR INFORMASI INTERNET (CUACA, DLL)
+        if "cuaca hari ini" in perintah or "laporan cuaca kota" in perintah:
+            cuaca.cek_cuaca()
             keyword_dikenali = True
             continue
 
