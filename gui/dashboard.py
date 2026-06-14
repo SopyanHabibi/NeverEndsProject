@@ -270,8 +270,10 @@ ctk.set_default_color_theme("blue")
 #  DASHBOARD
 # ─────────────────────────────────────────────────────────────────────────────
 class NeiraDashboard(ctk.CTk):
-    def __init__(self):
+    def __init__(self, processor_callback=None):
+        """Tambahkan parameter callback agar GUI bisa menerima fungsi pemroses dari luar."""
         super().__init__()
+        self.processor_callback = processor_callback
         self.title("Neira — AI Dashboard")
         self.geometry("900x680")
         self.minsize(720, 520)
@@ -408,12 +410,17 @@ class NeiraDashboard(ctk.CTk):
         threading.Thread(target=self._run_neira, args=(text,), daemon=True).start()
 
     def _run_neira(self, text):
-        try:
-            reply = proses_perintah_neira(text)
-        except Exception as e:
-            reply = f"⚠️ Error: {e}"
-        self.after(0, lambda: self._finish_response(reply))
-
+            """Mengirim perintah ke fungsi pemroses luar melalui Threading."""
+            try:
+                # KUNCI BARU: GUI tidak memproses sendiri, tapi melempar ke neira.py
+                if self.processor_callback:
+                    reply = self.processor_callback(text)
+                else:
+                    reply = "⚠️ Sistem: Fungsi pemroses perintah belum terhubung."
+            except Exception as e:
+                reply = f"⚠️ Error: {e}"
+            self.after(0, lambda: self._finish_response(reply))
+            
     def _finish_response(self, reply):
         self._set_thinking(False)
         if reply:
@@ -608,6 +615,20 @@ class NeiraDashboard(ctk.CTk):
         return opsi
 
 
+# DI PALING BAWAH FILE: gui/dashboard.py
+
 if __name__ == "__main__":
-    app = NeiraDashboard()
+    import sys
+    import os
+    # Trik Python: Agar bisa mengimport neira.py yang ada di luar folder gui
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    # Sekarang kita import fungsi otak dari neira.py
+    from neira import proses_perintah_backend
+    
+    print("🤖 Neira Engine v2.0: Online.")
+    print("⚡ Memulai Neira AI Dashboard System via GUI Module...")
+    
+    # Jalankan langsung dashboard-nya dengan menyuntikkan fungsi dari neira
+    app = NeiraDashboard(processor_callback=proses_perintah_backend)
     app.mainloop()

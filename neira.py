@@ -3,16 +3,15 @@ import json
 import os
 import time
 import webbrowser
+import sys 
 from playsound import playsound
 
 # Meng-import fitur-fitur modular Neira
 from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca, ai
+# Import komponen GUI dari folder gui
+from gui.dashboard import NeiraDashboard, _PrintCapture
 
-# ==================== FITUR KELOLA TERMINAL & REMINDER ====================
-def bersihkan_terminal():
-    """Membersihkan layar terminal biar rapi."""
-    os.system('cls' if os.name == 'nt' else 'clear')
-
+# ==================== FITUR REMINDER & SAPAAN ====================
 def sapa_user():
     """Fungsi untuk menyapa pengguna berdasarkan waktu saat ini."""
     try:
@@ -29,7 +28,6 @@ def sapa_user():
     else:
         print(f"Neira: Halo {nama_user}! Jangan lupa istirahat yang cukup ya.")
 
-
 def set_reminder(menit):
     """Fungsi untuk menahan program dan memunculkan pengingat suara."""
     detik = menit * 60
@@ -43,61 +41,55 @@ def set_reminder(menit):
         print(f"Neira: Maaf, aku tidak dapat memainkan suara alarm. Error: {e}")
 
 
-# ==================== CORE UTAMA NEIRA ====================
-def neira():
-    bersihkan_terminal()
-    # Ambil nama user untuk sapaan pembuka pertama kali
+# ==================== CORE UTAMA BACKEND NEIRA ====================
+def proses_perintah_backend(perintah: str) -> str:
+    """
+    Fungsi ini menggantikan loop 'while True'. 
+    Setiap kali kamu klik tombol Kirim di GUI, fungsi ini akan dipanggil sekali.
+    """
+    perintah_asli = perintah
+    perintah = perintah.lower().strip()
+
+    if perintah == "":
+        return ""
+
+    # Trik membajak print() agar outputnya dialihkan ke chat bubble GUI
+    captured = []
+    capture_io = _PrintCapture(lambda t: captured.append(t))
+    sys.stdout = capture_io
+
     try:
-        data_user = profil.baca_memori()
-        nama_ksatria = data_user.get("nama", "kamu")
-    except Exception:
-        nama_ksatria = "kamu"
-
-    # --- OUTPUT BARU SAAT PERTAMA KALI DIJALANKAN ---
-    print(f"🤖 Neira Engine v2.0: Online.")
-    print(f"⚙️  Systems: Semua fitur modular berhasil dimuat, {nama_ksatria}.")
-    print("------------------------------------------------------------------")
-
-    while True:
-        perintah = input("\nKamu: ").lower().strip()
-
+        keyword_dikenali = False
+        
         if "keluar" in perintah or "dadah" in perintah or "exit" in perintah:
             print("Neira: Sampai jumpa lagi! Semangat produktifnya ya.")
-            break
-        if perintah == "":
-            continue
-
-        keyword_dikenali = False
+            sys.stdout = sys.__stdout__
+            return "\n".join(captured)
 
         # 1. PENCEGATAN TYPO NAMA
         if utilitas.cek_typo_nama(perintah):
             print("Neira: Hmm... Mungkin maksudmu 'Neira'? Typo sedikit tuh, hehe.")
             keyword_dikenali = True
-            continue
 
         # 2. FITUR FAVORIT: MENYAPA & MENANYAKAN KABAR
-        if any(x in perintah for x in ["halo", "hai", "hi", "pagi", "siang", "sore", "malam"]):
+        elif any(x in perintah for x in ["halo", "hai", "hi", "pagi", "siang", "sore", "malam"]):
             sapa_user()
             keyword_dikenali = True
-            continue
             
         elif any(x in perintah for x in ["apa kabar", "bagaimana kabarmu", "kamu apa kabar", "gimana kabarmu"]):
             print("Neira: Aku baik-baik aja, kalo kamu gimana?")
             keyword_dikenali = True
-            continue
 
         # 3. FITUR UTENSIL: CEK JAM UTAMA & BUKA BROWSER
         elif "jam berapa" in perintah or "cek jam" in perintah:
             waktu_sekarang = datetime.datetime.now().strftime("%I:%M %p")
             print(f"Neira: Sekarang jam {waktu_sekarang}.")
             keyword_dikenali = True
-            continue
             
         elif "buka google" in perintah:
             print("Neira: Okeyy, membuka Google di browsermu...")
             webbrowser.open("https://www.google.com")
             keyword_dikenali = True
-            continue
             
         elif "buka youtube" in perintah:
             print("Neira: Okeyy, membuka YouTube...")
@@ -108,70 +100,56 @@ def neira():
             print("Neira: Okeyy, membuka Instagram...")
             webbrowser.open("https://www.Instagram.com/_sop.ayam")
             keyword_dikenali = True
-            continue
         
         elif "buka chrome" in perintah:
             sistem.buka_aplikasi("chrome")
             keyword_dikenali = True
-            continue
         
         elif "buka vscode" in perintah or "buka vs code" in perintah:
             sistem.buka_aplikasi("vscode")
             keyword_dikenali = True
-            continue
         
         elif "buka notepad" in perintah:
             sistem.buka_aplikasi("notepad")
             keyword_dikenali = True
-            continue
             
         elif "buka kalkulator" in perintah:
             sistem.buka_aplikasi("calc")
             keyword_dikenali = True
-            continue
         
         elif "mode ngoding" in perintah or "waktunya ngoding" in perintah:
             sistem.buka_workspace("ngoding")
             keyword_dikenali = True
-            continue
 
         elif "mode kuliah" in perintah or "waktunya belajar" in perintah:
             sistem.buka_workspace("kuliah")
             keyword_dikenali = True
-            continue
         
         elif "buka folder" in perintah:
-            # mengambil kata setelah "buka folder"
-            # Contoh: "buka folder kuliah" -> "kuliah"
             target_folder = perintah.replace("buka folder", "").strip()
-
             if target_folder:
                 sistem.buka_folder(target_folder)
             else:
                 print("Neira: Folder apa yang mau dibuka? Contoh: 'buka folder kuliah' atau 'buka folder project'.")
-                keyword_dikenali = True
-                continue
+            keyword_dikenali = True
             
         elif "matikan laptop dalam" in perintah or "matikan pc dalam" in perintah:
             try:
-                # Mengambil angka menit (misal: "matikan laptop dalam 30 menit" -> 30)
                 menit = int("".join(filter(str.isdigit, perintah)))
                 sistem.atur_shutdown_timer(menit)
             except ValueError:
-                print("Neira: Tolong sebutkan menitnya dengan jelas. Contoh: 'matikan laptop dalam 30 menit")
+                print("Neira: Tolong sebutkan menitnya dengan jelas. Contoh: 'matikan laptop dalam 30 menit'")
             keyword_dikenali = True
-            continue
         
         elif "batal matikan" in perintah or "batalkan shutdown" in perintah:
             sistem.batalkan_shutdown()
             keyword_dikenali = True
-            continue
 
         # 4. SEKTOR PROFIL & MEMORI (DINAMIS)
-        if any(x in perintah for x in ["siapa aku", "ringkas tentangku", "profilku"]):
+        elif any(x in perintah for x in ["siapa aku", "ringkas tentangku", "profilku"]):
             profil.ringkas_profil()
             keyword_dikenali = True
-            continue
+
         elif "ku " in perintah:
             try:
                 bagian_depan, isi_data = perintah.split(" ", 1)
@@ -181,65 +159,59 @@ def neira():
                         profil.simpan_memori(kategori, isi_data.strip())
                         print(f"Neira: Sipp! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}.")
                         keyword_dikenali = True
-                        continue
             except ValueError:
                 pass
 
-        # 5. SEKTOR TO-DO LIST (PRODUKTIVITAS)
-        if "tambah tugas" in perintah:
+        # 5. SEKTOR TO-DO LIST (PRODUKTIVITAS) - LEBIH LUAS & FLEKSIBEL
+        elif "tambah tugas" in perintah:
             tugas_baru = perintah.replace("tambah tugas", "").strip()
             produktivitas.add_tasks(tugas_baru)
             keyword_dikenali = True
-            continue
-        elif "lihat tugas" in perintah:
+
+        # MODIFIKASI DISINI: Bisa mendeteksi "lihat tugas", "lihat tugasku", "lihat tugasku dong"
+        elif any(x in perintah for x in ["lihat tugas", "lihat tugasku", "tugas hari ini"]):
             produktivitas.view_tasks()
             keyword_dikenali = True
-            continue
+
         elif "selesai tugas" in perintah or "selesai no" in perintah:
             try:
-                # Mengambil nomor tugas (misal: "selesai tugas 2" -> "2")
                 nomor = int("".join(filter(str.isdigit, perintah)))
                 produktivitas.mark_done(nomor)
             except ValueError:
                 print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'selesai tugas 1'")
             keyword_dikenali = True
-            continue
+
         elif "hapus tugas" in perintah or "hapus no" in perintah:
             try:
-                # Mengambil nomor tugas (misal: "hapus tugas 1" -> "1")
                 nomor = int("".join(filter(str.isdigit, perintah)))
                 produktivitas.delete_tasks(nomor)
             except ValueError:
                 print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'hapus tugas 1'")
             keyword_dikenali = True
-            continue
+
         # SEKTOR SESI FOKUS (AUTOMATED MULTI-THREADING)
-        if "mulai sesi fokus" in perintah:
+        elif "mulai sesi fokus" in perintah:
             try:
                 menit = int("".join(filter(str.isdigit, perintah)))
                 fokus.mulai_sesi(menit)
             except ValueError:
                 print("Neira: Masukkan angka menit yang jelas. Contoh: 'mulai sesi fokus 45 menit'")
             keyword_dikenali = True
-            continue
             
         elif "batalkan sesi" in perintah or "stop sesi" in perintah:
             fokus.batalkan_sesi()
             keyword_dikenali = True
-            continue
             
         elif "laporan sesi fokus" in perintah or "lihat laporan sesi fokus" in perintah:
             fokus.lihat_statistik_fokus()
             keyword_dikenali = True
-            continue
         
         elif "lihat statistik" in perintah or "statistik" in perintah:
             produktivitas.view_statistics()
             keyword_dikenali = True
-            continue
 
         # 6. SEKTOR JADWAL HARIAN (QUEST LOG)
-        if "tambah jadwal" in perintah or ("jadwal jam" in perintah and "agenda" in perintah):
+        elif "tambah jadwal" in perintah or ("jadwal jam" in perintah and "agenda" in perintah):
             try:
                 bagian_jam = perintah.split("jam ")[1].split("agenda ")[0].strip()
                 bagian_agenda = perintah.split("agenda ")[1].strip()
@@ -247,41 +219,54 @@ def neira():
             except IndexError:
                 print("Neira: Pola salah. Contoh: 'jadwal jam 01:00 siang agenda ngoding'")
             keyword_dikenali = True
-            continue
+
         elif any(x in perintah for x in ["apa kegiatan nanti", "jadwal nanti"]):
             jadwal.cek_agenda_mendatang()
             keyword_dikenali = True
-            continue
+
         elif "lihat jadwal" in perintah:
             jadwal.lihat_semua_jadwal()
             keyword_dikenali = True
-            continue
         
         # SEKTOR INFORMASI INTERNET (CUACA, DLL)
-        if "cuaca hari ini" in perintah or "laporan cuaca kota" in perintah:
+        elif "cuaca hari ini" in perintah or "laporan cuaca kota" in perintah:
             cuaca.cek_cuaca()
             keyword_dikenali = True
-            continue
         
         # 9. SEKTOR KONSULTASI JADWAL (AI CONTEXT-AWARE)
         elif "rekomendasi tugas" in perintah or "prioritas" in perintah or "analisis jadwal" in perintah:
-            ai.analisis_prioritas(perintah)
+            # MODIFIKASI DISINI: Memaksa print output dari fungsi AI
+            print(ai.analisis_prioritas(perintah))
             keyword_dikenali = True
-            continue
 
         # 10. JALUR AKHIR: CHATBOT UMUM (Jika tidak ada keyword lokal yang cocok)
-        elif "tanya neira" in perintah or perintah.startswith("neira,"):
-            # Mengambil pertanyaannya saja (menghapus kata pemicu)
-            pertanyaan = perintah.replace("tanya neira", "").replace("neira,", "").strip()
+        elif "tanya neira" in perintah or perintah.startswith("neira,") or "neira" in perintah:
+            # Membersihkan pemicu agar murni teks pertanyaan yang dikirim ke AI
+            pertanyaan = perintah.replace("tanya neira", "").replace("neira,", "").replace("neira", "").strip()
             if pertanyaan:
-                ai.tanya_neira(pertanyaan)
+                # MODIFIKASI DISINI: Menggunakan print() agar teks ditangkap sempurna oleh GUI
+                print(ai.tanya_neira(pertanyaan))
             else:
                 print("Neira: Iya Ian? Mau nanya apa ke aku?")
             keyword_dikenali = True
-            continue
+        
+        # Jika tidak ada satu pun keyword di atas yang cocok
+        if not keyword_dikenali:
+            print("Aku belum ngerti perintah itu. Coba ketik 'tanya neira, ...' untuk nanya bebas!")
+
+    except Exception as e:
+        print(f"⚠️ Error di sistem backend: {e}")
+    finally:
+        sys.stdout = sys.__stdout__
+
+    # Mengembalikan semua teks yang di-print tadi ke GUI untuk dijadikan animasi ketik
+    return "\n".join(captured) if captured else ""
 
 
-
-# Menjalankan assistant
+# ==================== SEKTOR RUNNER UTAMA APLIKASI ====================
 if __name__ == "__main__":
-    neira()
+    print("🤖 Neira Engine v2.0: Online.")
+    print("⚡ Memulai Neira AI Dashboard System...")
+    
+    app = NeiraDashboard(processor_callback=proses_perintah_backend)
+    app.mainloop()
