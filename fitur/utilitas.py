@@ -78,7 +78,7 @@ def penerjemah_waktu_manusia(teks_jam_mentah):
         return None
     
     
-def cetak_animasi(teks, kecepatan=0.01):
+def cetak_animasi(teks, kecepatan=0.00):
     """Mencetak teks ke terminal huruf demi huruf seperti efek mengetik."""
     for huruf in teks:
         # Cetak huruf tanpa baris baru

@@ -10,25 +10,18 @@ genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-3.5-flash') # Model terupdate yang kamu pakai
 
 def tanya_neira(pertanyaan_user):
-    """Fitur Chatbot Umum dengan Efek Mengetik Animasi."""
-    print("🧠 Neira sedang berpikir...")
-    
+    """Fungsi AI untuk GUI (Mengembalikan string utuh)."""
     instruksi_kepribadian = (
         "Kamu adalah Neira, sebuah asisten pintar pribadi yang ramah, taktis, dan protektif buatan Ian. "
         "Gunakan bahasa Indonesia yang santai, suportif, kadang panggil dia 'Ian'. Jangan terlalu formal seperti robot. "
         "Jawab pertanyaan berikut dengan jelas dan ringkas:\n\n"
     )
-    
     try:
         response = model.generate_content(instruksi_kepribadian + pertanyaan_user)
-        
-        # --- PERUBAHAN DI SINI: GUNAKAN ANIMASI ---
-        print("\n🧠 Neira: ", end="")
-        utilitas.cetak_animasi(response.text, kecepatan=0.015)
-        print() # Baris baru untuk kerapian prompt berikutnya
-        
+        # KUNCI UTAMA: Kita langsung kembalikan teks utuhnya tanpa di-print!
+        return response.text
     except Exception as e:
-        print(f"❌ Neira: Gagal terhubung ke otak AI. Error: {e}")
+        return f"❌ Neira: Gagal terhubung ke otak AI. Error: {e}"
 
 def analisis_prioritas(pertanyaan_user):
     """Fitur Konsultasi RAG dengan Efek Mengetik Animasi untuk output besar."""
@@ -54,16 +47,9 @@ def analisis_prioritas(pertanyaan_user):
         f"Data tugas:\n{data_tugas}\n\nData jadwal:\n{data_jadwal}\n\n"
         f"Pertanyaan Ian: {pertanyaan_user}\n"
     )
-    
     try:
         response = model.generate_content(prompt_konteks)
-        
-        # --- PERUBAHAN DI SINI: GUNAKAN ANIMASI UNTUK OUTPUT BESAR ---
-        print("\n===========================================")
-        print("📊 [ANALISIS STRATEGIS NEIRA]:             ")
-        print("===========================================")
-        utilitas.cetak_animasi(response.text, kecepatan=0.012) # Sedikit lebih cepat untuk teks panjang
-        print("===========================================\n")
-        
+        # KUNCI UTAMA: Kembalikan teks analisis utuh
+        return response.text
     except Exception as e:
-        print(f"❌ Neira: Gagal melakukan analisis cerdas. Error: {e}")
+        return f"❌ Neira: Gagal melakukan analisis cerdas. Error: {e}"
