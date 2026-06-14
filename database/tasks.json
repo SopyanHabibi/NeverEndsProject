@@ -79,8 +79,15 @@
     {
         "id": 12,
         "tugas": "bikin ai chat",
-        "status": "belum selesai",
+        "status": "selesai",
         "waktu_dibuat": "2026-06-13 22:47:58",
+        "waktu_selesai": "2026-06-14 15:14:53"
+    },
+    {
+        "id": 13,
+        "tugas": "bikin sidebar untuk ui",
+        "status": "belum selesai",
+        "waktu_dibuat": "2026-06-14 15:20:51",
         "waktu_selesai": null
     }
 ]

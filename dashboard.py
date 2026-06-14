@@ -20,6 +20,8 @@ import threading
 import datetime
 import sys
 import io
+import os
+from PIL import Image, ImageTk
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  REDIRECT print() → GUI
@@ -312,7 +314,7 @@ class NeiraDashboard(ctk.CTk):
                      corner_radius=5).pack(side="left", padx=(0, 8))
         ctk.CTkLabel(logo, text="Neira", font=ctk.CTkFont("Segoe UI", 18, "bold"),
                      text_color=TEXT_PRI).pack(side="left")
-        ctk.CTkLabel(logo, text="AI Assistant", font=ctk.CTkFont("Segoe UI", 11),
+        ctk.CTkLabel(logo, text="", font=ctk.CTkFont("Segoe UI", 11),
                      text_color=TEXT_SEC).pack(side="left", padx=(8, 0))
 
         self.status_label = ctk.CTkLabel(header, text="● Online",
@@ -432,24 +434,26 @@ class NeiraDashboard(ctk.CTk):
     def _add_user_bubble(self, text: str):
         ts = datetime.datetime.now().strftime("%H:%M")
         outer = tk.Frame(self._chat_frame, bg=BG_CARD)
-        outer.pack(fill="x", pady=(4, 0), padx=12)
+        outer.pack(fill="x", pady=(8, 0), padx=12)
 
         # Bubble rata kanan
         bubble_wrap = tk.Frame(outer, bg=BG_CARD)
         bubble_wrap.pack(side="right")
 
-        bubble = tk.Frame(bubble_wrap, bg=USER_BUBBLE)
+        # UBAH KE CTkFrame agar bubble bisa melengkung cantik (tidak ngotak)
+        bubble = ctk.CTkFrame(bubble_wrap, fg_color=USER_BUBBLE, corner_radius=16)
         bubble.pack(side="right")
 
+        # justify="left" dan anchor="w" memaksa teks rata kiri di dalam bubble
         msg = tk.Message(bubble, text=text,
                          bg=USER_BUBBLE, fg=TEXT_PRI,
                          font=("Segoe UI", 11),
-                         width=520, justify="left")
-        msg.pack(padx=14, pady=(10, 8))
+                         width=520, justify="left", anchor="w")
+        msg.pack(padx=14, pady=10)
 
         # Timestamp
         ts_frame = tk.Frame(self._chat_frame, bg=BG_CARD)
-        ts_frame.pack(fill="x", padx=16, pady=(0, 8))
+        ts_frame.pack(fill="x", padx=16, pady=(2, 8))
         tk.Label(ts_frame, text=f"Kamu  {ts}",
                  bg=BG_CARD, fg=TEXT_SEC,
                  font=("Segoe UI", 9)).pack(side="right")
@@ -459,55 +463,73 @@ class NeiraDashboard(ctk.CTk):
     def _add_neira_bubble(self, text: str):
         ts = datetime.datetime.now().strftime("%H:%M")
         outer = tk.Frame(self._chat_frame, bg=BG_CARD)
-        outer.pack(fill="x", pady=(4, 0), padx=12)
+        outer.pack(fill="x", pady=(8, 0), padx=12)
 
-        # Avatar
-        avatar_frame = tk.Frame(outer, bg=BG_CARD)
-        avatar_frame.pack(side="left", anchor="n", pady=6)
-        avatar = tk.Label(avatar_frame, text="N", width=2,
-                          bg=ACCENT, fg="white",
-                          font=("Segoe UI", 11, "bold"))
-        avatar.pack()
+        avatar_opsi = self._get_avatar_config()
+        
+        # 1. LOGIKA PENANGANAN AVATAR
+        padx_text = 4 # Default padding jika ada avatar
+        
+        if avatar_opsi == "none":
+            # Jika 'none', jangan buat komponen avatar sama sekali
+            padx_text = 40 # Geser teks sedikit agar sejajar rapi
+        else:
+            avatar_frame = tk.Frame(outer, bg=BG_CARD)
+            avatar_frame.pack(side="left", anchor="n", pady=4)
+            
+            if avatar_opsi == "default" or not os.path.exists(avatar_opsi):
+                # Avatar Huruf N Bulat Bawaan
+                avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
+                                      fg_color=ACCENT, text_color="white",
+                                      font=ctk.CTkFont("Segoe UI", 11, "bold"),
+                                      corner_radius=14)
+                avatar.pack()
+            else:
+                # Avatar Foto Custom
+                try:
+                    img = Image.open(avatar_opsi).resize((28, 28), Image.Resampling.LANCZOS)
+                    img_tk = ImageTk.PhotoImage(img)
+                    avatar = tk.Label(avatar_frame, image=img_tk, bg=BG_CARD)
+                    avatar.image = img_tk # Jaga objek agar tidak dihapus garbage collector
+                    avatar.pack()
+                except Exception:
+                    # Fallback jika gambar error/rusak
+                    avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
+                                          fg_color=ACCENT, text_color="white",
+                                          corner_radius=14)
+                    avatar.pack()
 
-        # Bubble — pakai tk.Message, width-nya ngikutin canvas
-        bubble = tk.Frame(outer, bg=NEIRA_BUBBLE,
-                          highlightbackground=ACCENT_DIM,
-                          highlightthickness=1)
-        bubble.pack(side="left", fill="x", expand=True, padx=(8, 60))
+        # 2. KOMPONEN BUBBLE TEXT (Tetap tanpa garis tepi/background kotak)
+        bubble = tk.Frame(outer, bg=BG_CARD, highlightthickness=0)
+        bubble.pack(side="left", fill="x", expand=True, padx=(12, 60))
 
-        # Mulai dengan teks kosong, nanti kita isi huruf demi huruf lewat animasi
         msg = tk.Message(bubble, text="",
-                         bg=NEIRA_BUBBLE, fg=TEXT_PRI,
+                         bg=BG_CARD, fg=TEXT_PRI,
                          font=("Segoe UI", 11),
-                         width=520, justify="left")
-        msg.pack(padx=14, pady=(10, 8), fill="x")
+                         width=520, justify="left", anchor="w")
+        msg.pack(padx=padx_text, pady=6, fill="x")
 
-        # Timestamp
+        # 3. TIMESTAMP
         ts_frame = tk.Frame(self._chat_frame, bg=BG_CARD)
-        ts_frame.pack(fill="x", padx=16, pady=(0, 8))
+        ts_frame.pack(fill="x", padx=16, pady=(2, 8))
         tk.Label(ts_frame, text=f"Neira  {ts}",
                  bg=BG_CARD, fg=TEXT_SEC,
-                 font=("Segoe UI", 9)).pack(side="left", padx=(36, 0))
+                 font=("Segoe UI", 9)).pack(side="left", padx=(40, 0))
 
         self._scroll_bottom()
 
-        # Update width Message saat canvas resize
         def _update_msg_width(e, m=msg):
             new_w = max(300, e.width - 160)
             m.configure(width=new_w)
         self._canvas.bind("<Configure>", _update_msg_width, add="+")
 
-        # --- FUNGSI ANIMASI LOGIKA INTERNAL GUI ---
         def ketik_horizontal(indeks=0):
             if indeks < len(text):
-                # Ambil potongan teks sampai huruf saat ini
                 teks_sekarang = text[:indeks+1]
                 msg.configure(text=teks_sekarang)
                 self._scroll_bottom()
-                # 12 milidetik per huruf (angka manis untuk animasi GUI)
-                self.after(12, lambda: ketik_horizontal(indeks + 1))
+                self.after(10, lambda: ketik_horizontal(indeks + 1))
 
-        # Jalankan animasinya!
         ketik_horizontal()
 
     # ── Typing indicator ──────────────────────────────────────────────────────
@@ -515,19 +537,41 @@ class NeiraDashboard(ctk.CTk):
         self._typing_outer = tk.Frame(self._chat_frame, bg=BG_CARD)
         self._typing_outer.pack(fill="x", pady=(4, 8), padx=12)
 
-        avatar = tk.Label(self._typing_outer, text="N", width=2,
-                          bg=ACCENT, fg="white",
-                          font=("Segoe UI", 11, "bold"))
-        avatar.pack(side="left", anchor="n", pady=6)
+        avatar_opsi = self._get_avatar_config()
+        padx_text = 4
+        
+        # SINKRONISASI AVATAR DI INDIKATOR TYPING
+        if avatar_opsi != "none":
+            avatar_frame = tk.Frame(self._typing_outer, bg=BG_CARD)
+            avatar_frame.pack(side="left", anchor="n", pady=6)
+            
+            if avatar_opsi == "default" or not os.path.exists(avatar_opsi):
+                avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
+                                      fg_color=ACCENT, text_color="white",
+                                      font=ctk.CTkFont("Segoe UI", 11, "bold"),
+                                      corner_radius=14)
+                avatar.pack()
+            else:
+                try:
+                    img = Image.open(avatar_opsi).resize((28, 28), Image.Resampling.LANCZOS)
+                    img_tk = ImageTk.PhotoImage(img)
+                    avatar = tk.Label(avatar_frame, image=img_tk, bg=BG_CARD)
+                    avatar.image = img_tk
+                    avatar.pack()
+                except Exception:
+                    avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28, fg_color=ACCENT, corner_radius=14)
+                    avatar.pack()
+        else:
+            padx_text = 40
 
-        bubble = tk.Frame(self._typing_outer, bg=NEIRA_BUBBLE,
-                          highlightbackground=ACCENT_DIM, highlightthickness=1)
-        bubble.pack(side="left", padx=(8, 0))
+        # Hilangkan border kotak kaku pada bubble typing (samakan dengan BG_CARD)
+        bubble = tk.Frame(self._typing_outer, bg=BG_CARD, highlightthickness=0)
+        bubble.pack(side="left", padx=(12, 0))
 
         self._typing_lbl = tk.Label(bubble, text="Neira sedang memproses ●",
-                                     bg=NEIRA_BUBBLE, fg=TEXT_SEC,
-                                     font=("Segoe UI", 10, "italic"))
-        self._typing_lbl.pack(padx=14, pady=10)
+                                     bg=BG_CARD, fg=TEXT_SEC,
+                                     font=("Segoe UI", 11, "italic"))
+        self._typing_lbl.pack(padx=padx_text, pady=10)
         self._animate_typing()
         self._scroll_bottom()
 
@@ -551,6 +595,17 @@ class NeiraDashboard(ctk.CTk):
         for w in self._chat_frame.winfo_children():
             w.destroy()
         self.after(200, lambda: self._add_neira_bubble("Chat dibersihkan. Mau ngapain sekarang? ✨"))
+        
+    def _get_avatar_config(self):
+        """Membaca profil.json untuk menentukan jenis avatar Neira saat ini."""
+        try:
+            from fitur import profil
+            data = profil.baca_memori()
+            opsi = data.get("avatar_neira", "none")
+        except Exception:
+            opsi = "none"
+            
+        return opsi
 
 
 if __name__ == "__main__":
