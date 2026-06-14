@@ -1,4 +1,7 @@
 import datetime
+import sys
+import time
+
 
 
 def cek_typo_nama(perintah_user):
@@ -73,3 +76,15 @@ def penerjemah_waktu_manusia(teks_jam_mentah):
         # Jika ada error internal, kita bisa intip lewat sini (bisa dihapus kalau sudah lancar)
         # print(f"[DEBUG ERROR]: {e}")
         return None
+    
+    
+def cetak_animasi(teks, kecepatan=0.01):
+    """Mencetak teks ke terminal huruf demi huruf seperti efek mengetik."""
+    for huruf in teks:
+        # Cetak huruf tanpa baris baru
+        sys.stdout.write(huruf)
+        # Paksa terminal untuk langsung memunculkan huruf tersebut saat itu juga
+        sys.stdout.flush()
+        # Jeda waktu per huruf (semakin kecil angkanya, semakin cepat)
+        time.sleep(kecepatan)
+    print()

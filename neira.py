@@ -6,7 +6,7 @@ import webbrowser
 from playsound import playsound
 
 # Meng-import fitur-fitur modular Neira
-from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca
+from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca, ai
 
 # ==================== FITUR KELOLA TERMINAL & REMINDER ====================
 def bersihkan_terminal():
@@ -260,6 +260,23 @@ def neira():
         # SEKTOR INFORMASI INTERNET (CUACA, DLL)
         if "cuaca hari ini" in perintah or "laporan cuaca kota" in perintah:
             cuaca.cek_cuaca()
+            keyword_dikenali = True
+            continue
+        
+        # 9. SEKTOR KONSULTASI JADWAL (AI CONTEXT-AWARE)
+        elif "rekomendasi tugas" in perintah or "prioritas" in perintah or "analisis jadwal" in perintah:
+            ai.analisis_prioritas(perintah)
+            keyword_dikenali = True
+            continue
+
+        # 10. JALUR AKHIR: CHATBOT UMUM (Jika tidak ada keyword lokal yang cocok)
+        elif "tanya neira" in perintah or perintah.startswith("neira,"):
+            # Mengambil pertanyaannya saja (menghapus kata pemicu)
+            pertanyaan = perintah.replace("tanya neira", "").replace("neira,", "").strip()
+            if pertanyaan:
+                ai.tanya_neira(pertanyaan)
+            else:
+                print("Neira: Iya Ian? Mau nanya apa ke aku?")
             keyword_dikenali = True
             continue
 

@@ -65,15 +65,22 @@
     {
         "id": 10,
         "tugas": "bikin aplikasi cuaca",
-        "status": "belum selesai",
+        "status": "selesai",
         "waktu_dibuat": "2026-06-12 20:53:44",
-        "waktu_selesai": null
+        "waktu_selesai": "2026-06-13 22:47:21"
     },
     {
         "id": 11,
         "tugas": "bikin voice input untuk neira",
         "status": "belum selesai",
         "waktu_dibuat": "2026-06-12 20:53:56",
+        "waktu_selesai": null
+    },
+    {
+        "id": 12,
+        "tugas": "bikin ai chat",
+        "status": "belum selesai",
+        "waktu_dibuat": "2026-06-13 22:47:58",
         "waktu_selesai": null
     }
 ]
