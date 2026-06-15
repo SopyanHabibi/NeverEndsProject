@@ -39,7 +39,7 @@ def hitung_mundur_otomatis(menit):
         
         # Matikan suara seketika setelah spasi ditekan
         winsound.PlaySound(None, winsound.SND_PURGE)
-        print("\n🔊 Neira: Alarm dimatikan via Global Hotkey.")
+        print("\n🔊 Alarm dimatikan via Global Hotkey.")
         print("Kamu: ", end="", flush=True)
             
         # Amankan Data ke JSON
@@ -54,7 +54,7 @@ def mulai_sesi(menit):
     global sesi_sedang_berjalan, waktu_mulai_session, durasi_target
     
     if sesi_sedang_berjalan:
-        print("Neira: Kamu masih berada dalam sesi fokus aktif! Selesaikan dulu sesi ini atau tunggu sampai alarm berbunyi.")
+        print("Kamu masih berada dalam sesi fokus aktif! Selesaikan dulu sesi ini atau tunggu sampai alarm berbunyi.")
         return
         
     sesi_sedang_berjalan = True
@@ -64,7 +64,7 @@ def mulai_sesi(menit):
     jam_mulai_str = waktu_mulai_session.strftime("%I:%M %p")
     estimasi_selesai = waktu_mulai_session + datetime.timedelta(minutes=menit)
     
-    print(f"Neira: Sesi fokus selama {menit} menit DIMULAI pada {jam_mulai_str}.")
+    print(f"Sesi fokus selama {menit} menit DIMULAI pada {jam_mulai_str}.")
     print(f"📌 Alarm otomatis diatur ke jam {estimasi_selesai.strftime('%I:%M %p')}. Selamat belajar, Ian!")
     
     # MEMBUAT JALUR BARU (THREAD): Menjalankan hitung mundur di balik layar
@@ -76,12 +76,12 @@ def batalkan_sesi():
     global sesi_sedang_berjalan, waktu_mulai_session
     
     if not sesi_sedang_berjalan:
-        print("Neira: Tidak ada sesi fokus yang sedang berjalan untuk dibatalkan.")
+        print("Tidak ada sesi fokus yang sedang berjalan untuk dibatalkan.")
         return
         
     sesi_sedang_berjalan = False
     waktu_mulai_session = None
-    print("❌ Neira: Sesi fokus berhasil dibatalkan. Data tidak akan disimpan ke statistik.")
+    print("❌ Sesi fokus berhasil dibatalkan. Data tidak akan disimpan ke statistik.")
 
 def simpan_ke_database(mulai, selesai, durasi):
     """Fungsi internal untuk menyimpan data mentah ke JSON."""
@@ -109,7 +109,7 @@ def lihat_statistik_fokus():
     """Menampilkan ringkasan statistik harian dan mingguan dari JSON (Sama seperti kemarin)."""
     # ... (Isi fungsi lihat_statistik_fokus kamu yang kemarin tetap sama, tidak perlu diubah) ...
     if not os.path.exists(FILE_SESI_FOKUS):
-        print("Neira: Belum ada riwayat sesi fokus.")
+        print("Belum ada riwayat sesi fokus.")
         return
     with open(FILE_SESI_FOKUS, "r") as file:
         data = json.load(file)

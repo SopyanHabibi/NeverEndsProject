@@ -32,7 +32,7 @@ def add_jadwal(jam_input, nama_agenda):
 
     if jam_24h is None:
         print(
-            "Neira: Format jam membingungkan. Tolong tulis seperti: '01:00 siang' atau '11:23 pagi'."
+            "Format jam membingungkan. Tolong tulis seperti: '01:00 siang' atau '11:23 pagi'."
         )
         return
 
@@ -47,7 +47,7 @@ def add_jadwal(jam_input, nama_agenda):
     jam_ampm = jam_objek.strftime("%I:%M %p")
 
     print(
-        f"Neira: Dimengerti! Agenda '{nama_agenda}' di jam {jam_ampm} ({jam_input}) sudah saya kunci."
+        f"Dimengerti! Agenda '{nama_agenda}' di jam {jam_ampm} ({jam_input}) sudah saya kunci."
     )
 
 
@@ -55,14 +55,14 @@ def add_jadwal(jam_input, nama_agenda):
 def cek_agenda_mendatang():
     daftar = read_jadwal()
     if not daftar:
-        print("Neira: Jadwal harianmu hari ini masih kosong.")
+        print("Jadwal harianmu hari ini masih kosong.")
         return
 
     waktu_sekarang = datetime.datetime.now()
     waktu_sekarang_teks = waktu_sekarang.strftime("%H:%M")
     waktu_sekarang_ampm = waktu_sekarang.strftime("%I:%M %p")
 
-    print(f"Neira: Sekarang jam {waktu_sekarang_ampm}.")
+    print(f"Sekarang jam {waktu_sekarang_ampm}.")
     ada_agenda_nanti = False
     print("\n📅 AGENDA KAMU BERIKUTNYA HARI INI:")
 
@@ -77,7 +77,7 @@ def cek_agenda_mendatang():
 
     if not ada_agenda_nanti:
         print(
-            "Neira: Untuk sisa hari ini, kamu tidak punya agenda lagi. Waktunya santai!"
+            "Untuk sisa hari ini, kamu tidak punya agenda lagi. Waktunya santai!"
         )
 
 
@@ -85,7 +85,7 @@ def cek_agenda_mendatang():
 def lihat_semua_jadwal():
     daftar = read_jadwal()
     if not daftar:
-        print("Neira: Belum ada jadwal harian yang tercatat.")
+        print("Belum ada jadwal harian yang tercatat.")
         return
 
     print("\n🗓️  SELURUH JADWAL HARIAN KAMU:")

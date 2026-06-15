@@ -44,7 +44,7 @@ def add_tasks(nama_tugas):
     daftar.append(tugas_baru)
     save_tasks(daftar)
     print(
-        f"Neira: Siap! '{nama_tugas}' dimasukkan ke daftar pada {waktu_ampm}."
+        f"Siap! '{nama_tugas}' dimasukkan ke daftar pada {waktu_ampm}."
     )
 
 
@@ -53,7 +53,7 @@ def view_tasks():
     daftar = read_tasks()
 
     if not daftar:
-        print("Neira: Daftar tugas kamu masih kosong!")
+        print("Daftar tugas kamu masih kosong!")
         return
 
     print("\n📋 DAFTAR TUGAS KAMU:")
@@ -76,13 +76,13 @@ def mark_done(nomor):
                     "%Y-%m-%d %H:%M:%S"
                 )
                 save_tasks(daftar)
-                print(f"Neira: Bagus! Tugas nomor {nomor} ditandai selesai.")
+                print(f"Bagus! Tugas nomor {nomor} ditandai selesai.")
             else:
-                print("Neira: Tugas itu memang sudah selesai sebelumnya.")
+                print("Tugas itu memang sudah selesai sebelumnya.")
             break
 
     if not ditemukan:
-        print("Neira: Nomor tugas tidak ditemukan.")
+        print("Nomor tugas tidak ditemukan.")
 
 
 def delete_tasks(nomor):
@@ -91,7 +91,7 @@ def delete_tasks(nomor):
     tugas_baru = [t for t in daftar if t["id"] != nomor]
 
     if len(daftar) == len(tugas_baru):
-        print("Neira: Nomor tugas tidak valid.")
+        print("Nomor tugas tidak valid.")
         return
 
     # Susun ulang ID agar rapi (1, 2, 3...)
@@ -99,7 +99,7 @@ def delete_tasks(nomor):
         t["id"] = indeks + 1
 
     save_tasks(tugas_baru)
-    print(f"Neira: Tugas nomor {nomor} berhasil dihapus.")
+    print(f"Tugas nomor {nomor} berhasil dihapus.")
 
 
 # def load_sesi():
@@ -147,14 +147,14 @@ def view_statistics():
     # Jika ternyata yang terbaca bukan sebuah List, kita paksa reset jadi list kosong
     if not isinstance(daftar, list):
         print(
-            "Neira: Waduh, struktur data todo_list.json rusak. Saya sedang meresetnya..."
+            "Waduh, struktur data todo_list.json rusak. Saya sedang meresetnya..."
         )
         save_tasks([])
         daftar = []
 
     if not daftar:
         print(
-            "Neira: Belum ada data tugas yang bisa dihitung untuk statistik hari ini."
+            "Belum ada data tugas yang bisa dihitung untuk statistik hari ini."
         )
         return
 

@@ -12,7 +12,7 @@ def cek_cuaca():
     except Exception:
         kota = "Medan"
         
-    print(f"✨ Neira: Mengambil laporan dan prediksi cuaca untuk Kota {kota.capitalize()}...")
+    print(f"✨ Mengambil laporan dan prediksi cuaca untuk Kota {kota.capitalize()}...")
     
     url = f"https://wttr.in/{urllib.parse.quote(kota)}?format=j1"
     
@@ -88,6 +88,6 @@ def cek_cuaca():
             print("===========================================")
             
     except urllib.error.URLError:
-        print("❌ Neira: Gagal terhubung ke server cuaca. Coba cek koneksi internetmu.")
+        print("❌ Gagal terhubung ke server cuaca. Coba cek koneksi internetmu.")
     except Exception as e:
-        print(f"❌ Neira: Gagal memproses prediksi cuaca. Error: {e}")
+        print(f"❌ Gagal memproses prediksi cuaca. Error: {e}")

@@ -25,16 +25,16 @@ def buka_aplikasi(nama_aplikasi):
         path_aplikasi = peta_aplikasi[nama_aplikasi]
 
         try:
-            print(f"Neira: Okeyy, membuka {nama_aplikasi.upper()}...")
+            print(f"Okeyy, membuka {nama_aplikasi.upper()}...")
             # popen digunakan agar Neira tidak ikutan membeku saat aplikasi dibuka
             subprocess.Popen(path_aplikasi)
         except FileNotFoundError:
-            print(f"❌ Neira: Waduh, saya tidak menemukan file {nama_aplikasi} di alamat tersebut.")
+            print(f"❌ Waduh, saya tidak menemukan file {nama_aplikasi} di alamat tersebut.")
             print("💡 Tips: Coba cek alamat instalasi aplikasi tersebut di laptopmu lalu sesuaikan di 'fitur/sistem.py'.")
         except Exception as e:
-            print(f"❌ Neira: Gagal membuka aplikasi. Error: {e}")
+            print(f"❌ Gagal membuka aplikasi. Error: {e}")
     else:
-        print(f"Neira: Maaf, aplikasi '{nama_aplikasi}' belum terdaftar di sistem saya.")
+        print(f"Maaf, aplikasi '{nama_aplikasi}' belum terdaftar di sistem saya.")
         
 
 def buka_workspace(nama_workspace):
@@ -49,16 +49,16 @@ def buka_workspace(nama_workspace):
     
     if nama_workspace in peta_workspace:
         daftar_aplikasi = peta_workspace[nama_workspace]
-        print(f"Neira: Membuka workspace [{nama_workspace.upper()}]...")
+        print(f"Membuka workspace [{nama_workspace.upper()}]...")
 
         # lakukan perulangan untuk membuka aplikasi satu per satu secara asinkron
         for aplikasi in daftar_aplikasi:
             print(f"➔ Membuka {aplikasi}...")
             buka_aplikasi(aplikasi)
 
-        print(f"Neira: Workspace {nama_workspace} berhasil dibuka!")
+        print(f"Workspace {nama_workspace} berhasil dibuka!")
     else:
-        print(f"Neira: Workspace '{nama_workspace}' tidak ditemukan. Coba 'ngoding' atau 'kuliah'.")
+        print(f"Workspace '{nama_workspace}' tidak ditemukan. Coba 'ngoding' atau 'kuliah'.")
         
 def buka_folder(nama_folder):
     """Membuka folder spesifik di File Explorer berdasarkan shortcut dari user."""
@@ -77,14 +77,14 @@ def buka_folder(nama_folder):
 
         # pastikan folder ada di dalam laptop
         if os.path.exists(path_target):
-            print(f"Neira: Okeyy, membuka folder {nama_folder.upper()}...")
+            print(f"Okeyy, membuka folder {nama_folder.upper()}...")
             # memanggil explorer.exe diikuti dengan alamat folder target
             subprocess.Popen(f'explorer "{path_target}"')
         else:
-            print(f"❌ Neira: Folder '{nama_folder}' tidak ditemukan di jalur: {path_target}")
+            print(f"❌ Folder '{nama_folder}' tidak ditemukan di jalur: {path_target}")
             print("💡 Tips: SINKRONKAN alamat foldermu terlebih dahulu di 'fitur/sistem.py'.")
     else:
-        print(f"Neira: Folder '{nama_folder}' belum terdaftar. Kamu bisa mendaftarkannya di fitur/sistem.py.")
+        print(f"Folder '{nama_folder}' belum terdaftar. Kamu bisa mendaftarkannya di fitur/sistem.py.")
         
 def atur_shutdown_timer(menit):
     """Mengatur waktu hitung mundur untuk mematikan laptop otomatis."""
@@ -94,16 +94,16 @@ def atur_shutdown_timer(menit):
     try:
         # /s = shutdown, /t = waktu tunggu dalam detik
         subprocess.Popen(f"shutdown /s /t {detik}", shell=True)
-        print(f"⚠️ Neira: SISTEM AKAN MATI OTOMATIS DALAM {menit} MENIT!")
+        print(f"⚠️ SISTEM AKAN MATI OTOMATIS DALAM {menit} MENIT!")
         print("💡 Tips: Jika ingin membatalkan, ketik perintah 'batal matikan laptop'.")
     except Exception as e:
-        print(f"❌ Neira: Gagal mengatur timer shutdown. Error: {e}")
+        print(f"❌ Gagal mengatur timer shutdown. Error: {e}")
         
 def batalkan_shutdown():
     """Membatalkan perintah shutdown yang sedang berjalan."""
     try:
         # /a = abort (batalkan perintah shutdown)
         subprocess.Popen("shutdown /a", shell=True)
-        print("✅ Neira: Perintah otomatisasi shutdown BERHASIL DIBATALKAN. Laptop aman!")
+        print("✅ Perintah otomatisasi shutdown BERHASIL DIBATALKAN. Laptop aman!")
     except Exception:
-        print("❌ Neira: Gagal membatalkan. Mungkin memang tidak ada timer yang aktif saat ini.")
+        print("❌ Gagal membatalkan. Mungkin memang tidak ada timer yang aktif saat ini.")

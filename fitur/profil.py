@@ -32,7 +32,7 @@ def ringkas_profil():
     print("===========================================")
     
     if not data:
-        print("Neira: Belum ada data profil yang tersimpan.")
+        print("Belum ada data profil yang tersimpan.")
         print("===========================================")
         return
 
@@ -43,5 +43,5 @@ def ringkas_profil():
         print(f"➤  {kunci_rapi} : {nilai}")
 
     print("-------------------------------------------")
-    # print(f"Neira: Total ada {len(data)} informasi tentangmu yang tersimpan.")
+    # print(f"Total ada {len(data)} informasi tentangmu yang tersimpan.")
     print("===========================================")

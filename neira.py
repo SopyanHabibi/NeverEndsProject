@@ -22,23 +22,23 @@ def sapa_user():
 
     jam = datetime.datetime.now().hour
     if jam < 12:
-        print(f"Neira: Halo {nama_user}! Semangat produktifnya hari ini.")
+        print(f"Halo {nama_user}! Semangat produktifnya hari ini.")
     elif 12 <= jam < 18:
-        print(f"Neira: Halo {nama_user}! Ada yang bisa aku bantu?")
+        print(f"Halo {nama_user}! Ada yang bisa aku bantu?")
     else:
-        print(f"Neira: Halo {nama_user}! Jangan lupa istirahat yang cukup ya.")
+        print(f"Halo {nama_user}! Jangan lupa istirahat yang cukup ya.")
 
 def set_reminder(menit):
     """Fungsi untuk menahan program dan memunculkan pengingat suara."""
     detik = menit * 60
-    print(f"Neira: Baik, aku akan mengingatkanmu dalam {menit} menit.")
+    print(f"Baik, aku akan mengingatkanmu dalam {menit} menit.")
     time.sleep(detik)
 
-    print(f"Neira: WAKTU HABIS!!!")
+    print(f"WAKTU HABIS!!!")
     try:
         playsound('alarm.wav')
     except Exception as e:
-        print(f"Neira: Maaf, aku tidak dapat memainkan suara alarm. Error: {e}")
+        print(f"Maaf, aku tidak dapat memainkan suara alarm. Error: {e}")
 
 
 # ==================== CORE UTAMA BACKEND NEIRA ====================
@@ -62,13 +62,13 @@ def proses_perintah_backend(perintah: str) -> str:
         keyword_dikenali = False
         
         if "keluar" in perintah or "dadah" in perintah or "exit" in perintah:
-            print("Neira: Sampai jumpa lagi! Semangat produktifnya ya.")
+            print("Sampai jumpa lagi! Semangat produktifnya ya.")
             sys.stdout = sys.__stdout__
             return "\n".join(captured)
 
         # 1. PENCEGATAN TYPO NAMA
         if utilitas.cek_typo_nama(perintah):
-            print("Neira: Hmm... Mungkin maksudmu 'Neira'? Typo sedikit tuh, hehe.")
+            print("Hmm... Mungkin maksudmu 'Neira'? Typo sedikit tuh, hehe.")
             keyword_dikenali = True
 
         # 2. FITUR FAVORIT: MENYAPA & MENANYAKAN KABAR
@@ -77,27 +77,27 @@ def proses_perintah_backend(perintah: str) -> str:
             keyword_dikenali = True
             
         elif any(x in perintah for x in ["apa kabar", "bagaimana kabarmu", "kamu apa kabar", "gimana kabarmu"]):
-            print("Neira: Aku baik-baik aja, kalo kamu gimana?")
+            print("Aku baik-baik aja, kalo kamu gimana?")
             keyword_dikenali = True
 
         # 3. FITUR UTENSIL: CEK JAM UTAMA & BUKA BROWSER
         elif "jam berapa" in perintah or "cek jam" in perintah:
             waktu_sekarang = datetime.datetime.now().strftime("%I:%M %p")
-            print(f"Neira: Sekarang jam {waktu_sekarang}.")
+            print(f"Sekarang jam {waktu_sekarang}.")
             keyword_dikenali = True
             
         elif "buka google" in perintah:
-            print("Neira: Okeyy, membuka Google di browsermu...")
+            print("Okeyy, membuka Google di browsermu...")
             webbrowser.open("https://www.google.com")
             keyword_dikenali = True
             
         elif "buka youtube" in perintah:
-            print("Neira: Okeyy, membuka YouTube...")
+            print("Okeyy, membuka YouTube...")
             webbrowser.open("https://www.youtube.com")
             keyword_dikenali = True
 
         elif "buka instagram" in perintah or "buka ig" in perintah:
-            print("Neira: Okeyy, membuka Instagram...")
+            print("Okeyy, membuka Instagram...")
             webbrowser.open("https://www.Instagram.com/_sop.ayam")
             keyword_dikenali = True
         
@@ -130,7 +130,7 @@ def proses_perintah_backend(perintah: str) -> str:
             if target_folder:
                 sistem.buka_folder(target_folder)
             else:
-                print("Neira: Folder apa yang mau dibuka? Contoh: 'buka folder kuliah' atau 'buka folder project'.")
+                print("Folder apa yang mau dibuka? Contoh: 'buka folder kuliah' atau 'buka folder project'.")
             keyword_dikenali = True
             
         elif "matikan laptop dalam" in perintah or "matikan pc dalam" in perintah:
@@ -138,7 +138,7 @@ def proses_perintah_backend(perintah: str) -> str:
                 menit = int("".join(filter(str.isdigit, perintah)))
                 sistem.atur_shutdown_timer(menit)
             except ValueError:
-                print("Neira: Tolong sebutkan menitnya dengan jelas. Contoh: 'matikan laptop dalam 30 menit'")
+                print("Tolong sebutkan menitnya dengan jelas. Contoh: 'matikan laptop dalam 30 menit'")
             keyword_dikenali = True
         
         elif "batal matikan" in perintah or "batalkan shutdown" in perintah:
@@ -157,7 +157,7 @@ def proses_perintah_backend(perintah: str) -> str:
                     kategori = bagian_depan[:-2] 
                     if isi_data.strip():
                         profil.simpan_memori(kategori, isi_data.strip())
-                        print(f"Neira: Sipp! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}.")
+                        print(f"Sipp! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}.")
                         keyword_dikenali = True
             except ValueError:
                 pass
@@ -178,7 +178,7 @@ def proses_perintah_backend(perintah: str) -> str:
                 nomor = int("".join(filter(str.isdigit, perintah)))
                 produktivitas.mark_done(nomor)
             except ValueError:
-                print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'selesai tugas 1'")
+                print("Tolong masukkan nomor tugas yang valid. Contoh: 'selesai tugas 1'")
             keyword_dikenali = True
 
         elif "hapus tugas" in perintah or "hapus no" in perintah:
@@ -186,7 +186,7 @@ def proses_perintah_backend(perintah: str) -> str:
                 nomor = int("".join(filter(str.isdigit, perintah)))
                 produktivitas.delete_tasks(nomor)
             except ValueError:
-                print("Neira: Tolong masukkan nomor tugas yang valid. Contoh: 'hapus tugas 1'")
+                print("Tolong masukkan nomor tugas yang valid. Contoh: 'hapus tugas 1'")
             keyword_dikenali = True
 
         # SEKTOR SESI FOKUS (AUTOMATED MULTI-THREADING)
@@ -195,7 +195,7 @@ def proses_perintah_backend(perintah: str) -> str:
                 menit = int("".join(filter(str.isdigit, perintah)))
                 fokus.mulai_sesi(menit)
             except ValueError:
-                print("Neira: Masukkan angka menit yang jelas. Contoh: 'mulai sesi fokus 45 menit'")
+                print("Masukkan angka menit yang jelas. Contoh: 'mulai sesi fokus 45 menit'")
             keyword_dikenali = True
             
         elif "batalkan sesi" in perintah or "stop sesi" in perintah:
@@ -217,7 +217,7 @@ def proses_perintah_backend(perintah: str) -> str:
                 bagian_agenda = perintah.split("agenda ")[1].strip()
                 jadwal.add_jadwal(bagian_jam, bagian_agenda)
             except IndexError:
-                print("Neira: Pola salah. Contoh: 'jadwal jam 01:00 siang agenda ngoding'")
+                print("Pola salah. Contoh: 'jadwal jam 01:00 siang agenda ngoding'")
             keyword_dikenali = True
 
         elif any(x in perintah for x in ["apa kegiatan nanti", "jadwal nanti"]):
@@ -235,8 +235,7 @@ def proses_perintah_backend(perintah: str) -> str:
         
         # 9. SEKTOR KONSULTASI JADWAL (AI CONTEXT-AWARE)
         elif "rekomendasi tugas" in perintah or "prioritas" in perintah or "analisis jadwal" in perintah:
-            # MODIFIKASI DISINI: Memaksa print output dari fungsi AI
-            print(ai.analisis_prioritas(perintah))
+            print(ai.analisis_prioritas(perintah_asli)) # Menggunakan perintah_asli agar konteksnya jelas
             keyword_dikenali = True
 
         # 10. JALUR AKHIR: CHATBOT UMUM (Jika tidak ada keyword lokal yang cocok)
@@ -247,7 +246,7 @@ def proses_perintah_backend(perintah: str) -> str:
                 # MODIFIKASI DISINI: Menggunakan print() agar teks ditangkap sempurna oleh GUI
                 print(ai.tanya_neira(pertanyaan))
             else:
-                print("Neira: Iya Ian? Mau nanya apa ke aku?")
+                print("Iya Ian? Mau nanya apa ke aku?")
             keyword_dikenali = True
         
         # Jika tidak ada satu pun keyword di atas yang cocok

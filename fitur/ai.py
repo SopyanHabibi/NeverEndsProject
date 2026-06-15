@@ -21,35 +21,56 @@ def tanya_neira(pertanyaan_user):
         # KUNCI UTAMA: Kita langsung kembalikan teks utuhnya tanpa di-print!
         return response.text
     except Exception as e:
-        return f"❌ Neira: Gagal terhubung ke otak AI. Error: {e}"
+        return f"❌ Gagal terhubung ke otak AI. Error: {e}"
 
-def analisis_prioritas(pertanyaan_user):
-    """Fitur Konsultasi RAG dengan Efek Mengetik Animasi untuk output besar."""
-    print("🧠 Neira sedang membaca database dan menganalisis jadwalmu...")
-    
-    FILE_TASKS = "database/tasks.json"
-    FILE_JADWAL = "database/jadwal.json"
-    
-    data_tugas = "Tidak ada tugas tercatat."
-    if os.path.exists(FILE_TASKS):
-        try:
-            with open(FILE_TASKS, "r") as f: data_tugas = json.dumps(json.load(f), indent=2)
-        except Exception: pass
+def muat_database_lokal():
+    """Fungsi helper untuk mengambil semua data Neira untuk konteks AI."""
+    konteks = {}
+
+    # 1. Ambil data To-Do List
+    if os.path.exists("database/tasks.json"): # Sesuaikan path foldermu
+        with open("database/tasks.json", "r") as f:
+            konteks["tugas"] = json.load(f)
             
-    data_jadwal = "Tidak ada agenda/jadwal tercatat."
-    if os.path.exists(FILE_JADWAL):
-        try:
-            with open(FILE_JADWAL, "r") as f: data_wal = json.dumps(json.load(f), indent=2)
-        except Exception: pass
+    # 2. Ambil data Jadwal/Agenda
+    if os.path.exists("database/jadwal.json"):
+        with open("database/jadwal.json", "r") as f:
+            konteks["jadwal"] = json.load(f)
+            
+    # 3. Ambil data Profil / Memori Kamu
+    if os.path.exists("database/memori.json"):
+        with open("database/memori.json", "r") as f:
+            konteks["profil"] = json.load(f)
+            
+    return json.dumps(konteks, indent=2)
 
-    prompt_konteks = (
-        "Kamu adalah Neira, asisten pribadi Ian. Tugas utamamu adalah membantu Ian mengelola waktu kuliah.\n"
-        f"Data tugas:\n{data_tugas}\n\nData jadwal:\n{data_jadwal}\n\n"
-        f"Pertanyaan Ian: {pertanyaan_user}\n"
-    )
+def analisis_prioritas(perintah_user):
+    """Memberikan rekomendasi tugas berdasarkan data real-time di database"""
+    # Ambil kondisi database saat ini
+    data_sekarang = muat_database_lokal()
+    
+    # Susun prompt sistem yang galak/tegas agar AI fokus menganalisis data tersebut
+    prompt = f"""
+    Kamu adalah Neira, asisten produktivitas pintar. Berikut adalah data real-time dari database pengguna saat ini:
+    {data_sekarang}
+    
+    Pertanyaan/Perintah Pengguna: "{perintah_user}"
+    
+    Tugas Anda:
+    1. Ambil nama asli pengguna dari data profil yang disediakan di database (JANGAN memanggil dengan sebutan "Kak", panggil langsung namanya dengan akrab atau sesuai nama di database!).
+    2. Analisis tugas yang BELUM selesai (status belum kelar).
+    3. Berikan rekomendasi urutan mana yang harus dikerjakan duluan (Urutkan dari yang paling krusial/penting).
+    4. Berikan alasan singkat dan bersemangat kenapa tugas itu harus didahulukan.
+    5. JANGAN tampilkan simbol '**' untuk menebalkan teks jika GUI belum siap, atau gunakan format yang rapi saja.
+    """
+    
+    response_ai = model.generate_content(prompt)
+
     try:
-        response = model.generate_content(prompt_konteks)
-        # KUNCI UTAMA: Kembalikan teks analisis utuh
-        return response.text
-    except Exception as e:
-        return f"❌ Neira: Gagal melakukan analisis cerdas. Error: {e}"
+        return response_ai.text
+    except AttributeError:
+        return response_ai.candidates[0].content.parts[0].text
+
+
+    
+    
