@@ -8,6 +8,7 @@ from playsound import playsound
 
 # Meng-import fitur-fitur modular Neira
 from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca, ai
+from fitur.ai import warmup_neira, tanya_neira
 # Import komponen GUI dari folder gui
 from gui.dashboard import NeiraDashboard, _PrintCapture
 
@@ -71,10 +72,10 @@ def proses_perintah_backend(perintah: str) -> str:
             print("Hmm... Mungkin maksudmu 'Neira'? Typo sedikit tuh, hehe.")
             keyword_dikenali = True
 
-        # 2. FITUR FAVORIT: MENYAPA & MENANYAKAN KABAR
-        elif any(x in perintah for x in ["halo", "hai", "hi", "pagi", "siang", "sore", "malam"]):
-            sapa_user()
-            keyword_dikenali = True
+        # # 2. FITUR FAVORIT: MENYAPA & MENANYAKAN KABAR
+        # elif any(x in perintah for x in ["halo", "hai", "hi", "pagi", "siang", "sore", "malam"]):
+        #     sapa_user()
+        #     keyword_dikenali = True
             
         elif any(x in perintah for x in ["apa kabar", "bagaimana kabarmu", "kamu apa kabar", "gimana kabarmu"]):
             print("Aku baik-baik aja, kalo kamu gimana?")
@@ -239,19 +240,12 @@ def proses_perintah_backend(perintah: str) -> str:
             keyword_dikenali = True
 
         # 10. JALUR AKHIR: CHATBOT UMUM (Jika tidak ada keyword lokal yang cocok)
-        elif "tanya neira" in perintah or perintah.startswith("neira,") or "neira" in perintah:
-            # Membersihkan pemicu agar murni teks pertanyaan yang dikirim ke AI
-            pertanyaan = perintah.replace("tanya neira", "").replace("neira,", "").replace("neira", "").strip()
-            if pertanyaan:
-                # MODIFIKASI DISINI: Menggunakan print() agar teks ditangkap sempurna oleh GUI
-                print(ai.tanya_neira(pertanyaan))
-            else:
-                print("Iya Ian? Mau nanya apa ke aku?")
+        else:
+            # tanya_neira otomatis deteksi intent:
+            # - kalau ada keyword tugas/jadwal/profil → load database yang relevan saja
+            # - kalau ngobrol biasa → langsung jawab tanpa baca database sama sekali
+            print(tanya_neira(perintah_asli))
             keyword_dikenali = True
-        
-        # Jika tidak ada satu pun keyword di atas yang cocok
-        if not keyword_dikenali:
-            print("Aku belum ngerti perintah itu. Coba ketik 'tanya neira, ...' untuk nanya bebas!")
 
     except Exception as e:
         print(f"⚠️ Error di sistem backend: {e}")
@@ -266,6 +260,9 @@ def proses_perintah_backend(perintah: str) -> str:
 if __name__ == "__main__":
     print("🤖 Neira Engine v2.0: Online.")
     print("⚡ Memulai Neira AI Dashboard System...")
+
+    # Pre-load model Ollama ke RAM biar response pertama tidak lemot
+    warmup_neira()
     
     app = NeiraDashboard(processor_callback=proses_perintah_backend)
     app.mainloop()
