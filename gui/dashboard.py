@@ -31,14 +31,18 @@ class _PrintCapture(io.StringIO):
         super().__init__()
         self._callback = callback
         self._original = sys.stdout
+        self._buffer = ""  # Tampung semua token dulu di sini
 
     def write(self, text):
         self._original.write(text)
-        if text.strip():
-            self._callback(text.strip())
+        self._buffer += text  # Kumpulkan token, jangan langsung callback
 
     def flush(self):
         self._original.flush()
+
+    def get_result(self) -> str:
+        """Ambil hasil lengkap setelah streaming selesai."""
+        return self._buffer.strip()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -424,7 +428,7 @@ class NeiraDashboard(ctk.CTk):
     def _finish_response(self, reply):
         self._set_thinking(False)
         if reply:
-            self._add_neira_bubble(reply)
+            self._add_neira_bubble(reply, animasi=False) # <-- Set animasi ke False di sini!
 
     def _set_thinking(self, state: bool):
         self._thinking = state
@@ -467,7 +471,7 @@ class NeiraDashboard(ctk.CTk):
 
         self._scroll_bottom()
 
-    def _add_neira_bubble(self, text: str):
+    def _add_neira_bubble(self, text: str, animasi=True): # <-- Tambah parameter animasi
         ts = datetime.datetime.now().strftime("%H:%M")
         outer = tk.Frame(self._chat_frame, bg=BG_CARD)
         outer.pack(fill="x", pady=(8, 0), padx=12)
@@ -478,35 +482,31 @@ class NeiraDashboard(ctk.CTk):
         padx_text = 4 # Default padding jika ada avatar
         
         if avatar_opsi == "none":
-            # Jika 'none', jangan buat komponen avatar sama sekali
-            padx_text = 40 # Geser teks sedikit agar sejajar rapi
+            padx_text = 40 
         else:
             avatar_frame = tk.Frame(outer, bg=BG_CARD)
             avatar_frame.pack(side="left", anchor="n", pady=4)
             
             if avatar_opsi == "default" or not os.path.exists(avatar_opsi):
-                # Avatar Huruf N Bulat Bawaan
                 avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
                                       fg_color=ACCENT, text_color="white",
                                       font=ctk.CTkFont("Segoe UI", 11, "bold"),
                                       corner_radius=14)
                 avatar.pack()
             else:
-                # Avatar Foto Custom
                 try:
                     img = Image.open(avatar_opsi).resize((28, 28), Image.Resampling.LANCZOS)
                     img_tk = ImageTk.PhotoImage(img)
                     avatar = tk.Label(avatar_frame, image=img_tk, bg=BG_CARD)
-                    avatar.image = img_tk # Jaga objek agar tidak dihapus garbage collector
+                    avatar.image = img_tk 
                     avatar.pack()
                 except Exception:
-                    # Fallback jika gambar error/rusak
                     avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
                                           fg_color=ACCENT, text_color="white",
                                           corner_radius=14)
                     avatar.pack()
 
-        # 2. KOMPONEN BUBBLE TEXT (Tetap tanpa garis tepi/background kotak)
+        # 2. KOMPONEN BUBBLE TEXT
         bubble = tk.Frame(outer, bg=BG_CARD, highlightthickness=0)
         bubble.pack(side="left", fill="x", expand=True, padx=(12, 60))
 
@@ -530,14 +530,18 @@ class NeiraDashboard(ctk.CTk):
             m.configure(width=new_w)
         self._canvas.bind("<Configure>", _update_msg_width, add="+")
 
-        def ketik_horizontal(indeks=0):
-            if indeks < len(text):
-                teks_sekarang = text[:indeks+1]
-                msg.configure(text=teks_sekarang)
-                self._scroll_bottom()
-                self.after(10, lambda: ketik_horizontal(indeks + 1))
-
-        ketik_horizontal()
+        # PERBAIKAN SPEED KUNCI: Cek apakah butuh animasi ketik atau langsung instant bypass
+        if animasi:
+            def ketik_horizontal(indeks=0):
+                if indeks < len(text):
+                    teks_sekarang = text[:indeks+1]
+                    msg.configure(text=teks_sekarang)
+                    self._scroll_bottom()
+                    self.after(10, lambda: ketik_horizontal(indeks + 1))
+            ketik_horizontal()
+        else:
+            msg.configure(text=text) # Langsung tembak teks utuh tanpa jeda animasi 10ms per karakter!
+            self._scroll_bottom()
 
     # ── Typing indicator ──────────────────────────────────────────────────────
     def _show_typing(self):

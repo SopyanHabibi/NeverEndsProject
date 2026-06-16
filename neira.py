@@ -8,7 +8,8 @@ from playsound import playsound
 
 # Meng-import fitur-fitur modular Neira
 from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca, ai
-from fitur.ai import warmup_neira, tanya_neira
+# PERBAIKAN: Import fungsi chatbot Gemini yang baru
+from fitur.ai import ngobrol_santai, analisis_prioritas
 # Import komponen GUI dari folder gui
 from gui.dashboard import NeiraDashboard, _PrintCapture
 
@@ -55,8 +56,7 @@ def proses_perintah_backend(perintah: str) -> str:
         return ""
 
     # Trik membajak print() agar outputnya dialihkan ke chat bubble GUI
-    captured = []
-    capture_io = _PrintCapture(lambda t: captured.append(t))
+    capture_io = _PrintCapture(None)  # buffer mode, tidak pakai callback
     sys.stdout = capture_io
 
     try:
@@ -65,7 +65,7 @@ def proses_perintah_backend(perintah: str) -> str:
         if "keluar" in perintah or "dadah" in perintah or "exit" in perintah:
             print("Sampai jumpa lagi! Semangat produktifnya ya.")
             sys.stdout = sys.__stdout__
-            return "\n".join(captured)
+            return capture_io.get_result()
 
         # 1. PENCEGATAN TYPO NAMA
         if utilitas.cek_typo_nama(perintah):
@@ -151,15 +151,21 @@ def proses_perintah_backend(perintah: str) -> str:
             profil.ringkas_profil()
             keyword_dikenali = True
 
-        elif "ku " in perintah:
+        elif perintah.split()[0].endswith("ku"):
             try:
+                ABAIKAN = ["aku", "kalau", "waktu", "atau", "buku", "ragu"]
                 bagian_depan, isi_data = perintah.split(" ", 1)
-                if bagian_depan.endswith("ku"):
-                    kategori = bagian_depan[:-2] 
+                if bagian_depan.endswith("ku") and bagian_depan not in ABAIKAN:
+                    kategori = bagian_depan[:-2]
                     if isi_data.strip():
                         profil.simpan_memori(kategori, isi_data.strip())
                         print(f"Sipp! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}.")
                         keyword_dikenali = True
+                else:
+                    # PERBAIKAN: Menggunakan ngobrol_santai bawaan Gemini Flash
+                    respons_ai = ngobrol_santai(perintah_asli)
+                    print(respons_ai)
+                    keyword_dikenali = True
             except ValueError:
                 pass
 
@@ -169,7 +175,6 @@ def proses_perintah_backend(perintah: str) -> str:
             produktivitas.add_tasks(tugas_baru)
             keyword_dikenali = True
 
-        # MODIFIKASI DISINI: Bisa mendeteksi "lihat tugas", "lihat tugasku", "lihat tugasku dong"
         elif any(x in perintah for x in ["lihat tugas", "lihat tugasku", "tugas hari ini"]):
             produktivitas.view_tasks()
             keyword_dikenali = True
@@ -236,15 +241,16 @@ def proses_perintah_backend(perintah: str) -> str:
         
         # 9. SEKTOR KONSULTASI JADWAL (AI CONTEXT-AWARE)
         elif "rekomendasi tugas" in perintah or "prioritas" in perintah or "analisis jadwal" in perintah:
-            print(ai.analisis_prioritas(perintah_asli)) # Menggunakan perintah_asli agar konteksnya jelas
+            # PERBAIKAN: Menggunakan fungsi prioritas Gemini Flash dan mencetaknya langsung
+            respons_prioritas = analisis_prioritas(perintah_asli)
+            print(respons_prioritas)
             keyword_dikenali = True
 
         # 10. JALUR AKHIR: CHATBOT UMUM (Jika tidak ada keyword lokal yang cocok)
         else:
-            # tanya_neira otomatis deteksi intent:
-            # - kalau ada keyword tugas/jadwal/profil → load database yang relevan saja
-            # - kalau ngobrol biasa → langsung jawab tanpa baca database sama sekali
-            print(tanya_neira(perintah_asli))
+            # PERBAIKAN: Menggunakan ngobrol_santai bawaan Gemini Flash
+            respons_ai = ngobrol_santai(perintah_asli)
+            print(respons_ai)
             keyword_dikenali = True
 
     except Exception as e:
@@ -253,7 +259,7 @@ def proses_perintah_backend(perintah: str) -> str:
         sys.stdout = sys.__stdout__
 
     # Mengembalikan semua teks yang di-print tadi ke GUI untuk dijadikan animasi ketik
-    return "\n".join(captured) if captured else ""
+    return capture_io.get_result()
 
 
 # ==================== SEKTOR RUNNER UTAMA APLIKASI ====================
@@ -261,8 +267,7 @@ if __name__ == "__main__":
     print("🤖 Neira Engine v2.0: Online.")
     print("⚡ Memulai Neira AI Dashboard System...")
 
-    # Pre-load model Ollama ke RAM biar response pertama tidak lemot
-    warmup_neira()
+    # PERBAIKAN: Hapus baris warmup_neira() karena Gemini Flash tidak butuh loading lokal
     
     app = NeiraDashboard(processor_callback=proses_perintah_backend)
     app.mainloop()
