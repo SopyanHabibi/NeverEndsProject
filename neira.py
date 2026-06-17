@@ -44,7 +44,7 @@ def set_reminder(menit):
 
 
 # ==================== CORE UTAMA BACKEND NEIRA ====================
-def proses_perintah_backend(perintah: str) -> str:
+def proses_perintah_backend(perintah: str):
     """
     Fungsi ini menggantikan loop 'while True'. 
     Setiap kali kamu klik tombol Kirim di GUI, fungsi ini akan dipanggil sekali.
@@ -241,16 +241,16 @@ def proses_perintah_backend(perintah: str) -> str:
         
         # 9. SEKTOR KONSULTASI JADWAL (AI CONTEXT-AWARE)
         elif "rekomendasi tugas" in perintah or "prioritas" in perintah or "analisis jadwal" in perintah:
-            # PERBAIKAN: Menggunakan fungsi prioritas Gemini Flash dan mencetaknya langsung
-            respons_prioritas = analisis_prioritas(perintah_asli)
-            print(respons_prioritas)
+            # Karena analisis_prioritas sekarang menghasilkan generator, alirkan teksnya keluar
+            for token in ai.analisis_prioritas(perintah_asli):
+                yield token
             keyword_dikenali = True
 
         # 10. JALUR AKHIR: CHATBOT UMUM (Jika tidak ada keyword lokal yang cocok)
         else:
             # PERBAIKAN: Menggunakan ngobrol_santai bawaan Gemini Flash
-            respons_ai = ngobrol_santai(perintah_asli)
-            print(respons_ai)
+            for token in ai.ngobrol_santai(perintah_asli):
+                yield token
             keyword_dikenali = True
 
     except Exception as e:
@@ -259,15 +259,17 @@ def proses_perintah_backend(perintah: str) -> str:
         sys.stdout = sys.__stdout__
 
     # Mengembalikan semua teks yang di-print tadi ke GUI untuk dijadikan animasi ketik
-    return capture_io.get_result()
+    if keyword_dikenali and capture_io.get_result():
+        yield capture_io.get_result()
 
 
 # ==================== SEKTOR RUNNER UTAMA APLIKASI ====================
 if __name__ == "__main__":
-    print("🤖 Neira Engine v2.0: Online.")
+    print("🤖 Neira Engine v2.0 (Hybrid Mode): Online.")
     print("⚡ Memulai Neira AI Dashboard System...")
 
-    # PERBAIKAN: Hapus baris warmup_neira() karena Gemini Flash tidak butuh loading lokal
+    # Kita aktifkan lagi pemanasan model lokal ke RAM biar chat pertama langsung wusss!
+    ai.warmup_neira()
     
     app = NeiraDashboard(processor_callback=proses_perintah_backend)
     app.mainloop()

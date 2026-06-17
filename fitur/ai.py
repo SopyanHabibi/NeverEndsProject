@@ -1,93 +1,99 @@
 import json
 import os
-import google.generativeai as genai
+import requests
 
-# ==========================================
-# 🔑 ATUR API KEY GEMINI FLASH KAMU DI SINI
-# ==========================================
-GOOGLE_API_KEY = "AQ.Ab8RN6KDpDGlnStotDCTZ1FJS7HnHWlUBZk3rusgaAQTVqfUvw"
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# PERBAIKAN: Set konfigurasi biar Gemini merespons pendek, padat, dan cepat!
-konfigurasi_cepat = genai.types.GenerationConfig(
-    # max_output_tokens=250,  # Dibatasi ~2 kalimat pendek biar hemat bandwidth & cepat kirimnya
-    temperature=0.7
-)
-
-model = genai.GenerativeModel('gemini-3.5-flash')
-
-
-def muat_database_lokal(hanya_profil=False):
-    """Fungsi dinamis untuk mengambil data database berdasarkan kebutuhan"""
-    konteks = {}
-    
-    # Profil selalu dimuat agar Neira tahu nama Ian
+def muat_nama_user():
+    """Hanya mengambil nama user dari memori lokal agar prompt ringan"""
     if os.path.exists("database/memori.json"):
-        with open("database/memori.json", "r") as f:
-            konteks["profil"] = json.load(f)
-            
-    # Jika hanya_profil=True, abaikan tugas dan jadwal demi menghemat speed chat santai
-    if not hanya_profil:
-        if os.path.exists("database/todo_list.json"): 
-            with open("database/todo_list.json", "r") as f:
-                konteks["tugas"] = json.load(f)
-                
-        if os.path.exists("database/jadwal.json"):
-            with open("database/jadwal.json", "r") as f:
-                konteks["jadwal"] = json.load(f)
-                
-    return json.dumps(konteks, indent=2)
+        try:
+            with open("database/memori.json", "r") as f:
+                data = json.load(f)
+                return data.get("nama", "Ian")
+        except:
+            return "Ian"
+    return "Ian"
 
-
-def analisis_prioritas(perintah_user):
-    """Rekomendasi tugas (Membutuhkan data full tugas & jadwal)"""
-    data_sekarang = muat_database_lokal(hanya_profil=False)
-    
-    prompt = f"""
-    Kamu adalah Neira, asisten produktivitas pintar. Berikut adalah data real-time dari database pengguna saat ini:
-    {data_sekarang}
-    
-    Pertanyaan/Perintah Pengguna: "{perintah_user}"
-    
-    Tugas Anda:
-    1. Ambil nama asli pengguna dari data profil. JANGAN PERNAH memanggil dengan sebutan "Kak", panggil langsung 'Ian' dengan akrab!
-    2. Analisis tugas yang BELUM selesai.
-    3. Berikan rekomendasi urutan mana yang harus dikerjakan duluan beserta alasan singkatnya.
-    4. JANGAN gunakan tanda bintang ganda (**) untuk menebalkan teks karena GUI tidak mendukungnya. Gunakan format teks biasa yang rapi.
-    """
+def panggil_ollama_endpoint(prompt_lengkap):
+    """Fungsi inti untuk berkomunikasi dengan aplikasi Ollama di laptopmu"""
+    url = "http://localhost:11434/api/generate"
+    payload = {
+        "model": "qwen2.5:7b-instruct-q4_K_M",  # Menggunakan model andalanmu!
+        "prompt": prompt_lengkap,
+        "stream": True  # Tetap False agar cocok dengan animasi ketik bawaan GUI kamu
+    }
     
     try:
-        response = model.generate_content(prompt)
-        return response.text
+        response = requests.post(url, json=payload, timeout=30, stream=True)
+        if response.status_code == 200:
+            # Baca respons baris demi baris saat Ollama mengirimkannya
+            for line in response.iter_lines():
+                if line:
+                    data_json = json.loads(line.decode('utf-8'))
+                    token = data_json.get("response", "")
+                    yield token  # Kirim token/kata ini langsung ke GUI saat itu juga
+        else:
+            yield f"Waduh, server Ollama error: {response.status_code}"
+    except requests.exceptions.ConnectionError:
+        yield f"Ian, aplikasi Ollama belum dinyalain tuh!"
     except Exception as e:
-        return f"Neira: Duh Ian, gagal terkoneksi ke Gemini nih. Cek internet atau API Key kamu ya! Error: {e}"
-
+        yield f"Ada kendala teknis: {e}"
 
 def ngobrol_santai(perintah_user):
-    """Fungsi ngobrol kasual SUPER CEPAT (Hanya memuat data profil)"""
-    # OPTIMASI: Set True agar tidak perlu membaca & mengirim data todo list/jadwal yang berat
-    data_profil = muat_database_lokal(hanya_profil=True)
+    """Fungsi ngobrol kasual yang ramah dan berempati via Qwen2.5"""
+    nama_ian = muat_nama_user()
     
     prompt = f"""
-    Kamu adalah Neira, asisten pribadi sekaligus teman ngobrol yang pintar, seru, dan suportif untuk Ian.
+    Kamu adalah Neira, asisten pribadi sekaligus sahabat dekat Ian yang pintar, seru, dan suportif.
     
-    Karakter Gayamu Berbicara:
+    Aturan Gayamu Berbicara:
     1. JANGAN GUNAKAN BAHASA BAKU (seperti 'Anda', 'mengapa', 'tetapi'). Itu terlalu kaku!
     2. Gunakan bahasa chat sehari-hari Indonesia yang santai, kasual, dan akrab. Gunakan kata: 'aku', 'kamu', 'iya', 'oke', 'nggak', 'udah', 'lagi apa', 'hehe', 'siap'.
-    3. Panggil nama lawan bicaramu langsung dengan 'Ian' (JANGAN PERNAH gunakan kata 'Kak' atau 'Kak Ian').
-    4. JANGAN gunakan tanda bintang ganda (**) untuk menebalkan teks.
-    5. Jawab dengan ekspresif, asyik, dan nyambung. Tetap jaga respons agar tidak terlalu panjang, TAPI jika Ian sedang mengeluh, sedih, atau pusing, berikan empati dan perhatian yang hangat layaknya teman dekat yang peduli!
+    3. Panggil nama lawan bicaramu langsung dengan 'Ian'. JANGAN PERNAH gunakan kata 'Kak' atau 'Kak Ian'.
+    4. JANGAN gunakan tanda bintang ganda (**) untuk menebalkan teks karena GUI tidak mendukungnya.
+    5. Jawab dengan ekspresif, cerdas, dan nyambung. Jika Ian sedang mengeluh, pusing, atau sedih, berikan perhatian hangat dan empati layaknya teman dekat yang peduli. Tetap jaga jawaban agar padat dan tidak terlalu bertele-tele.
 
-    Konteks Profil Pengguna:
-    {data_profil}
-
-    Pertanyaan/Obrolan dari Ian: "{perintah_user}"
+    Nama Temanmu: {nama_ian}
+    Chat dari Ian: "{perintah_user}"
     
     Respons Anda:
     """
+    yield from panggil_ollama_endpoint(prompt)
+
+def analisis_prioritas(perintah_user):
+    """Fungsi analisis tugas khusus menggunakan kecerdasan Qwen2.5"""
+    nama_ian = muat_nama_user()
     
+    # Ambil data tugas mentah jika ada untuk dijadikan konteks sederhana
+    tugas_mentah = ""
+    if os.path.exists("database/todo_list.json"):
+        try:
+            with open("database/todo_list.json", "r") as f:
+                tugas_mentah = f.read()
+        except:
+            pass
+
+    prompt = f"""
+    Kamu adalah Neira, asisten produktivitas. Analisis daftar tugas berikut untuk Ian.
+    
+    Data Tugas Saat Ini:
+    {tugas_mentah if tugas_mentah else "Tidak ada tugas terdaftar."}
+    
+    Pertanyaan Ian: "{perintah_user}"
+    
+    Tugas Anda:
+    1. Sapa Ian dengan akrab (JANGAN panggil 'Kak').
+    2. Berikan rekomendasi urutan mana tugas yang harus dikerjakan duluan beserta alasan singkatnya.
+    3. Gunakan format teks biasa yang rapi tanpa tanda bintang ganda (**).
+    
+    Respons Anda:
+    """
+    return panggil_ollama_endpoint(prompt)
+
+def warmup_neira():
+    """Fungsi opsional untuk memicu loading awal model ke RAM"""
     try:
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        return f"Neira: Duh Ian, koneksiku ke server Gemini keganggu nih. Error: {e}"
+        requests.post("http://localhost:11434/api/generate", 
+                      json={"model": "qwen2.5:7b-instruct-q4_K_M", "prompt": "hi", "stream": False}, 
+                      timeout=5)
+    except:
+        pass

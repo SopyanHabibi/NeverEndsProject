@@ -1,17 +1,7 @@
 """
-Neira AI Dashboard
-==================
+Neira AI Dashboard (Cleaned & Optimized v2.0)
+==============================================
 Letakkan file ini sejajar dengan Neira.py di root project kamu.
-
-Struktur folder:
-    project_kamu/
-    ├── Neira.py
-    ├── neira_dashboard.py   ← file ini
-    ├── fitur/
-    └── ...
-
-Requirements:
-    pip install customtkinter
 """
 
 import customtkinter as ctk
@@ -24,42 +14,39 @@ import os
 from PIL import Image, ImageTk
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  REDIRECT print() → GUI
+#  REDIRECT print() → GUI (Khusus Perintah Sistem Lokal)
 # ─────────────────────────────────────────────────────────────────────────────
 class _PrintCapture(io.StringIO):
     def __init__(self, callback):
         super().__init__()
         self._callback = callback
         self._original = sys.stdout
-        self._buffer = ""  # Tampung semua token dulu di sini
+        self._buffer = "" 
 
     def write(self, text):
         self._original.write(text)
-        self._buffer += text  # Kumpulkan token, jangan langsung callback
+        self._buffer += text 
 
     def flush(self):
         self._original.flush()
 
     def get_result(self) -> str:
-        """Ambil hasil lengkap setelah streaming selesai."""
         return self._buffer.strip()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  PROSESOR PERINTAH NEIRA
+#  PROSESOR PERINTAH NEIRA LOKAL (Hanya Mengurus Fitur Sistem)
 # ─────────────────────────────────────────────────────────────────────────────
 def proses_perintah_neira(perintah: str) -> str:
     import datetime
     import webbrowser
 
     try:
-        from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca, ai
+        from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca
     except ImportError as e:
         return f"⚠️ Gagal import modul fitur: {e}\nPastikan neira_dashboard.py ada di folder root project."
 
-    perintah_asli = perintah
     perintah = perintah.lower().strip()
-
     if perintah == "":
         return ""
 
@@ -226,23 +213,11 @@ def proses_perintah_neira(perintah: str) -> str:
         if "cuaca hari ini" in perintah or "laporan cuaca kota" in perintah:
             cuaca.cek_cuaca()
             keyword_dikenali = True
-        # Ganti bagian penanganan AI di dalam proses_perintah_neira menjadi seperti ini:
-        elif "rekomendasi tugas" in perintah or "prioritas" in perintah or "analisis jadwal" in perintah:
-            hasil_ai = ai.analisis_prioritas(perintah)
-            print(hasil_ai) # Print utuh agar ditangkap sempurna oleh _PrintCapture
-            keyword_dikenali = True
-            
-        elif "tanya neira" in perintah or perintah.startswith("neira,"):
-            pertanyaan = perintah.replace("tanya neira", "").replace("neira,", "").strip()
-            if pertanyaan:
-                hasil_ai = ai.tanya_neira(pertanyaan)
-                print(hasil_ai) # Print utuh agar ditangkap sempurna oleh _PrintCapture
-            else:
-                print("Iya? Mau nanya apa ke aku?")
-            keyword_dikenali = True
 
+        # KUNCI UTAMA: Jika tidak ada perintah lokal cocok, kembalikan teks kosong
         if not keyword_dikenali:
-            print("Aku belum ngerti perintah itu. Coba ketik 'tanya neira, ...' untuk nanya bebas!")
+            sys.stdout = sys.__stdout__
+            return ""
 
     except Exception as e:
         print(f"⚠️ Error: {e}")
@@ -253,7 +228,7 @@ def proses_perintah_neira(perintah: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  PALET WARNA
+#  PALET WARNA UI
 # ─────────────────────────────────────────────────────────────────────────────
 BG_DEEP      = "#0D0F14"
 BG_PANEL     = "#13161E"
@@ -264,18 +239,16 @@ ACCENT_DIM   = "#3D3570"
 TEXT_PRI     = "#E8E9F0"
 TEXT_SEC     = "#6B7080"
 USER_BUBBLE  = "#232640"
-NEIRA_BUBBLE = "#181B27"
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  DASHBOARD
+#  KELAS DASHBOARD GUI NEIRA
 # ─────────────────────────────────────────────────────────────────────────────
 class NeiraDashboard(ctk.CTk):
     def __init__(self, processor_callback=None):
-        """Tambahkan parameter callback agar GUI bisa menerima fungsi pemroses dari luar."""
         super().__init__()
         self.processor_callback = processor_callback
         self.title("Neira — AI Dashboard")
@@ -301,40 +274,31 @@ class NeiraDashboard(ctk.CTk):
         else:
             salam = f"Halo {nama}! Jangan lupa istirahat yang cukup ya. 🌙"
 
-        self.after(300, lambda: self._add_neira_bubble(salam))
+        self.after(300, lambda: self._add_neira_bubble(salam, animasi=True))
         self.after(700, lambda: self._add_neira_bubble(
             "Ketik perintah seperti biasa ya — semua fitur Neira bisa kamu pakai di sini.\n"
-            "Contoh: lihat tugas · cuaca hari ini · tanya neira, ..."
+            "Contoh: lihat tugas · cuaca hari ini · tanya neira, ...", animasi=True
         ))
 
-    # ── Layout ────────────────────────────────────────────────────────────────
     def _build_layout(self):
-        # Header
+        # Header Panel
         header = ctk.CTkFrame(self, height=58, fg_color=BG_PANEL, corner_radius=0)
         header.pack(fill="x", side="top")
         header.pack_propagate(False)
 
         logo = ctk.CTkFrame(header, fg_color="transparent")
         logo.pack(side="left", padx=20, pady=8)
-        ctk.CTkFrame(logo, width=10, height=10, fg_color=ACCENT,
-                     corner_radius=5).pack(side="left", padx=(0, 8))
-        ctk.CTkLabel(logo, text="Neira", font=ctk.CTkFont("Segoe UI", 18, "bold"),
-                     text_color=TEXT_PRI).pack(side="left")
-        ctk.CTkLabel(logo, text="", font=ctk.CTkFont("Segoe UI", 11),
-                     text_color=TEXT_SEC).pack(side="left", padx=(8, 0))
+        ctk.CTkFrame(logo, width=10, height=10, fg_color=ACCENT, corner_radius=5).pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(logo, text="Neira", font=ctk.CTkFont("Segoe UI", 18, "bold"), text_color=TEXT_PRI).pack(side="left")
 
-        self.status_label = ctk.CTkLabel(header, text="● Online",
-                                          font=ctk.CTkFont("Segoe UI", 11),
-                                          text_color="#4ADE80")
+        self.status_label = ctk.CTkLabel(header, text="● Online", font=ctk.CTkFont("Segoe UI", 11), text_color="#4ADE80")
         self.status_label.pack(side="right", padx=20)
 
-        ctk.CTkButton(header, text="Bersihkan", width=90, height=30,
-                      font=ctk.CTkFont("Segoe UI", 11),
-                      fg_color=BG_INPUT, hover_color=ACCENT_DIM,
-                      text_color=TEXT_SEC, corner_radius=6,
+        ctk.CTkButton(header, text="Bersihkan", width=90, height=30, font=ctk.CTkFont("Segoe UI", 11),
+                      fg_color=BG_INPUT, hover_color=ACCENT_DIM, text_color=TEXT_SEC, corner_radius=6,
                       command=self._clear_chat).pack(side="right", padx=(0, 8), pady=14)
 
-        # Input bar
+        # Input Bar Panel
         input_bar = ctk.CTkFrame(self, height=76, fg_color=BG_PANEL, corner_radius=0)
         input_bar.pack(fill="x", side="bottom")
         input_bar.pack_propagate(False)
@@ -342,56 +306,40 @@ class NeiraDashboard(ctk.CTk):
         input_inner = ctk.CTkFrame(input_bar, fg_color=BG_INPUT, corner_radius=14)
         input_inner.pack(fill="x", padx=16, pady=14, ipady=2)
 
-        self.input_box = ctk.CTkTextbox(
-            input_inner, height=40, fg_color="transparent",
-            font=ctk.CTkFont("Segoe UI", 13),
-            text_color=TEXT_PRI, wrap="word",
-            border_width=0, activate_scrollbars=False)
+        self.input_box = ctk.CTkTextbox(input_inner, height=40, fg_color="transparent",
+                                         font=ctk.CTkFont("Segoe UI", 13), text_color=TEXT_PRI, wrap="word",
+                                         border_width=0, activate_scrollbars=False)
         self.input_box.pack(side="left", fill="both", expand=True, padx=(14, 4), pady=6)
 
-        self.send_btn = ctk.CTkButton(
-            input_inner, text="Kirim ↵", width=84, height=36,
-            font=ctk.CTkFont("Segoe UI", 12, "bold"),
-            fg_color=ACCENT, hover_color=ACCENT_DIM,
-            text_color="#FFFFFF", corner_radius=10,
-            command=self._on_send)
+        self.send_btn = ctk.CTkButton(input_inner, text="Kirim ↵", width=84, height=36,
+                                      font=ctk.CTkFont("Segoe UI", 12, "bold"), fg_color=ACCENT, hover_color=ACCENT_DIM,
+                                      text_color="#FFFFFF", corner_radius=10, command=self._on_send)
         self.send_btn.pack(side="right", padx=(4, 10), pady=6)
 
-        # ── Chat area: Canvas + Scrollbar (manual, bukan CTkScrollableFrame) ──
+        # Chat Area Canvas
         chat_outer = ctk.CTkFrame(self, fg_color=BG_CARD, corner_radius=0)
         chat_outer.pack(fill="both", expand=True)
 
-        self._canvas = tk.Canvas(chat_outer, bg=BG_CARD, bd=0,
-                                  highlightthickness=0)
-        scrollbar = ctk.CTkScrollbar(chat_outer, command=self._canvas.yview,
-                                      button_color=ACCENT_DIM,
-                                      button_hover_color=ACCENT)
+        self._canvas = tk.Canvas(chat_outer, bg=BG_CARD, bd=0, highlightthickness=0)
+        scrollbar = ctk.CTkScrollbar(chat_outer, command=self._canvas.yview, button_color=ACCENT_DIM, button_hover_color=ACCENT)
         self._canvas.configure(yscrollcommand=scrollbar.set)
 
         scrollbar.pack(side="right", fill="y")
         self._canvas.pack(side="left", fill="both", expand=True)
 
-        # Frame di dalam canvas — ini yang jadi container bubble
         self._chat_frame = tk.Frame(self._canvas, bg=BG_CARD)
-        self._canvas_window = self._canvas.create_window(
-            (0, 0), window=self._chat_frame, anchor="nw")
+        self._canvas_window = self._canvas.create_window((0, 0), window=self._chat_frame, anchor="nw")
 
-        # Update scroll region & lebar frame saat resize
         self._chat_frame.bind("<Configure>", self._on_frame_configure)
         self._canvas.bind("<Configure>", self._on_canvas_configure)
-
-        # Scroll dengan mouse wheel
-        self._canvas.bind_all("<MouseWheel>",
-            lambda e: self._canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+        self._canvas.bind_all("<MouseWheel>", lambda e: self._canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
 
     def _on_frame_configure(self, event=None):
         self._canvas.configure(scrollregion=self._canvas.bbox("all"))
 
     def _on_canvas_configure(self, event):
-        # Paksa frame selebar canvas — ini kunci wrapping yang benar
         self._canvas.itemconfig(self._canvas_window, width=event.width)
 
-    # ── Key bindings ──────────────────────────────────────────────────────────
     def _bind_keys(self):
         self.input_box.bind("<Return>", self._on_enter)
         self.input_box.bind("<Shift-Return>", lambda e: None)
@@ -401,7 +349,7 @@ class NeiraDashboard(ctk.CTk):
             self._on_send()
             return "break"
 
-    # ── Chat logic ────────────────────────────────────────────────────────────
+    # ── INTI ALUR KIRIM DATA (THREAD FIXED) ───────────────────────────────────
     def _on_send(self):
         if self._thinking:
             return
@@ -411,24 +359,104 @@ class NeiraDashboard(ctk.CTk):
         self.input_box.delete("1.0", "end")
         self._add_user_bubble(text)
         self._set_thinking(True)
+        
+        # Pemicu tunggal Threading aman (Gak bakal dobel chat lagi)
         threading.Thread(target=self._run_neira, args=(text,), daemon=True).start()
 
     def _run_neira(self, text):
-            """Mengirim perintah ke fungsi pemroses luar melalui Threading."""
-            try:
-                # KUNCI BARU: GUI tidak memproses sendiri, tapi melempar ke neira.py
+        """FUNGSI ENGINE HIBRIDA: Cepat memisahkan sistem lokal dan AI Streaming"""
+        try:
+            # 1. Deteksi kata kunci sistem lokal
+            perintah_lokal = ["buka", "lihat", "tambah", "hapus", "selesai", "jam berapa", "cuaca", "fokus", "mode", "siapa aku", "profilku", "ku "]
+            is_perintah_sistem = any(x in text.lower() for x in perintah_lokal)
+
+            if is_perintah_sistem:
                 if self.processor_callback:
-                    reply = self.processor_callback(text)
-                else:
-                    reply = "⚠️ Sistem: Fungsi pemroses perintah belum terhubung."
-            except Exception as e:
-                reply = f"⚠️ Error: {e}"
-            self.after(0, lambda: self._finish_response(reply))
+                    # Jalankan perintah sistem lokal via neira.py
+                    reply_lokal = self.processor_callback(text)
+                    if reply_lokal.strip() != "":
+                        self.after(0, lambda: self._add_neira_bubble(reply_lokal, animasi=False))
+                        self.after(0, lambda: self._set_thinking(False))
+                        return 
+
+            # 2. JALUR AI UTAMA (STREAMING QWEN2.5): Dipakai jika tidak ada perintah lokal cocok
+            if self.processor_callback:
+                # Menangkap generator dari neira.py
+                response_generator = self.processor_callback(text)
+                
+                bubble_terbuat = False
+                full_reply = ""
+
+                # Kupas kata demi kata yang mengalir secara live dari Ollama lokal
+                for token in response_generator:
+                    full_reply += token
+                    
+                    if not bubble_terbuat:
+                        self.after(0, lambda t=full_reply: self._add_neira_bubble_stream(t))
+                        bubble_terbuat = True
+                    else:
+                        self.after(0, lambda t=full_reply: self._update_neira_bubble_stream(t))
+            else:
+                self.after(0, lambda: self._add_neira_bubble("⚠️ Sistem: Otak backend belum terhubung.", animasi=False))
+
+        except Exception as e:
+            self.after(0, lambda: self._add_neira_bubble(f"⚠️ Error Engine: {e}", animasi=False))
+        finally:
+            # KUNCI BUG TYPING: Status memproses hancur seketika saat loop beres!
+            self.after(0, lambda: self._set_thinking(False))
+
+    # ── SISTEM BALON STREAMING LIVE ───────────────────────────────────────────
+    def _add_neira_bubble_stream(self, text: str):
+        """Membuat balon chat streaming Neira pertama kali saat token masuk"""
+        ts = datetime.datetime.now().strftime("%H:%M")
+        outer = tk.Frame(self._chat_frame, bg=BG_CARD)
+        outer.pack(fill="x", pady=(8, 0), padx=12)
+
+        avatar_opsi = self._get_avatar_config()
+        padx_text = 4 if avatar_opsi != "none" else 40
+        
+        if avatar_opsi != "none":
+            avatar_frame = tk.Frame(outer, bg=BG_CARD)
+            avatar_frame.pack(side="left", anchor="n", pady=4)
             
-    def _finish_response(self, reply):
-        self._set_thinking(False)
-        if reply:
-            self._add_neira_bubble(reply, animasi=False) # <-- Set animasi ke False di sini!
+            if avatar_opsi == "default" or not os.path.exists(avatar_opsi):
+                avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28, fg_color=ACCENT, text_color="white",
+                                      font=ctk.CTkFont("Segoe UI", 11, "bold"), corner_radius=14)
+                avatar.pack()
+            else:
+                try:
+                    img = Image.open(avatar_opsi).resize((28, 28), Image.Resampling.LANCZOS)
+                    img_tk = ImageTk.PhotoImage(img)
+                    avatar = tk.Label(avatar_frame, image=img_tk, bg=BG_CARD)
+                    avatar.image = img_tk 
+                    avatar.pack()
+                except Exception:
+                    avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28, fg_color=ACCENT, corner_radius=14)
+                    avatar.pack()
+
+        bubble = tk.Frame(outer, bg=BG_CARD, highlightthickness=0)
+        bubble.pack(side="left", fill="x", expand=True, padx=(12, 60))
+
+        # Variabel message disimpan ke instance self agar bisa di-update berkala
+        self._current_stream_msg = tk.Message(bubble, text=text, bg=BG_CARD, fg=TEXT_PRI,
+                                             font=("Segoe UI", 11), width=520, justify="left", anchor="w")
+        self._current_stream_msg.pack(padx=padx_text, pady=6, fill="x")
+
+        ts_frame = tk.Frame(self._chat_frame, bg=BG_CARD)
+        ts_frame.pack(fill="x", padx=16, pady=(2, 8))
+        tk.Label(ts_frame, text=f"Neira  {ts}", bg=BG_CARD, fg=TEXT_SEC, font=("Segoe UI", 9)).pack(side="left", padx=(40, 0))
+
+        self._scroll_bottom()
+
+        def _update_msg_width(e, m=self._current_stream_msg):
+            m.configure(width=max(300, e.width - 160))
+        self._canvas.bind("<Configure>", _update_msg_width, add="+")
+
+    def _update_neira_bubble_stream(self, text: str):
+        """Menggabungkan token baru ke dalam balon chat secara real-time (Ngebut)"""
+        if hasattr(self, "_current_stream_msg"):
+            self._current_stream_msg.configure(text=text)
+            self._scroll_bottom()
 
     def _set_thinking(self, state: bool):
         self._thinking = state
@@ -441,57 +469,41 @@ class NeiraDashboard(ctk.CTk):
             self.send_btn.configure(state="normal", text="Kirim ↵")
             self._hide_typing()
 
-    # ── Bubble builder ────────────────────────────────────────────────────────
     def _add_user_bubble(self, text: str):
         ts = datetime.datetime.now().strftime("%H:%M")
         outer = tk.Frame(self._chat_frame, bg=BG_CARD)
         outer.pack(fill="x", pady=(8, 0), padx=12)
 
-        # Bubble rata kanan
         bubble_wrap = tk.Frame(outer, bg=BG_CARD)
         bubble_wrap.pack(side="right")
 
-        # UBAH KE CTkFrame agar bubble bisa melengkung cantik (tidak ngotak)
         bubble = ctk.CTkFrame(bubble_wrap, fg_color=USER_BUBBLE, corner_radius=16)
         bubble.pack(side="right")
 
-        # justify="left" dan anchor="w" memaksa teks rata kiri di dalam bubble
-        msg = tk.Message(bubble, text=text,
-                         bg=USER_BUBBLE, fg=TEXT_PRI,
-                         font=("Segoe UI", 11),
-                         width=520, justify="left", anchor="w")
+        msg = tk.Message(bubble, text=text, bg=USER_BUBBLE, fg=TEXT_PRI, font=("Segoe UI", 11), width=520, justify="left", anchor="w")
         msg.pack(padx=14, pady=10)
 
-        # Timestamp
         ts_frame = tk.Frame(self._chat_frame, bg=BG_CARD)
         ts_frame.pack(fill="x", padx=16, pady=(2, 8))
-        tk.Label(ts_frame, text=f"Kamu  {ts}",
-                 bg=BG_CARD, fg=TEXT_SEC,
-                 font=("Segoe UI", 9)).pack(side="right")
-
+        tk.Label(ts_frame, text=f"Kamu  {ts}", bg=BG_CARD, fg=TEXT_SEC, font=("Segoe UI", 9)).pack(side="right")
         self._scroll_bottom()
 
-    def _add_neira_bubble(self, text: str, animasi=True): # <-- Tambah parameter animasi
+    def _add_neira_bubble(self, text: str, animasi=True):
+        """Balon teks statis (dipakai untuk pesan pembuka & respons perintah sistem lokal)"""
         ts = datetime.datetime.now().strftime("%H:%M")
         outer = tk.Frame(self._chat_frame, bg=BG_CARD)
         outer.pack(fill="x", pady=(8, 0), padx=12)
 
         avatar_opsi = self._get_avatar_config()
+        padx_text = 4 if avatar_opsi != "none" else 40
         
-        # 1. LOGIKA PENANGANAN AVATAR
-        padx_text = 4 # Default padding jika ada avatar
-        
-        if avatar_opsi == "none":
-            padx_text = 40 
-        else:
+        if avatar_opsi != "none":
             avatar_frame = tk.Frame(outer, bg=BG_CARD)
             avatar_frame.pack(side="left", anchor="n", pady=4)
             
             if avatar_opsi == "default" or not os.path.exists(avatar_opsi):
-                avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
-                                      fg_color=ACCENT, text_color="white",
-                                      font=ctk.CTkFont("Segoe UI", 11, "bold"),
-                                      corner_radius=14)
+                avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28, fg_color=ACCENT, text_color="white",
+                                      font=ctk.CTkFont("Segoe UI", 11, "bold"), corner_radius=14)
                 avatar.pack()
             else:
                 try:
@@ -501,66 +513,51 @@ class NeiraDashboard(ctk.CTk):
                     avatar.image = img_tk 
                     avatar.pack()
                 except Exception:
-                    avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
-                                          fg_color=ACCENT, text_color="white",
-                                          corner_radius=14)
+                    avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28, fg_color=ACCENT, corner_radius=14)
                     avatar.pack()
 
-        # 2. KOMPONEN BUBBLE TEXT
         bubble = tk.Frame(outer, bg=BG_CARD, highlightthickness=0)
         bubble.pack(side="left", fill="x", expand=True, padx=(12, 60))
 
-        msg = tk.Message(bubble, text="",
-                         bg=BG_CARD, fg=TEXT_PRI,
-                         font=("Segoe UI", 11),
-                         width=520, justify="left", anchor="w")
+        msg = tk.Message(bubble, text="", bg=BG_CARD, fg=TEXT_PRI, font=("Segoe UI", 11), width=520, justify="left", anchor="w")
         msg.pack(padx=padx_text, pady=6, fill="x")
 
-        # 3. TIMESTAMP
         ts_frame = tk.Frame(self._chat_frame, bg=BG_CARD)
         ts_frame.pack(fill="x", padx=16, pady=(2, 8))
-        tk.Label(ts_frame, text=f"Neira  {ts}",
-                 bg=BG_CARD, fg=TEXT_SEC,
-                 font=("Segoe UI", 9)).pack(side="left", padx=(40, 0))
+        tk.Label(ts_frame, text=f"Neira  {ts}", bg=BG_CARD, fg=TEXT_SEC, font=("Segoe UI", 9)).pack(side="left", padx=(40, 0))
 
         self._scroll_bottom()
 
         def _update_msg_width(e, m=msg):
-            new_w = max(300, e.width - 160)
-            m.configure(width=new_w)
+            m.configure(width=max(300, e.width - 160))
+         
         self._canvas.bind("<Configure>", _update_msg_width, add="+")
 
-        # PERBAIKAN SPEED KUNCI: Cek apakah butuh animasi ketik atau langsung instant bypass
         if animasi:
             def ketik_horizontal(indeks=0):
                 if indeks < len(text):
-                    teks_sekarang = text[:indeks+1]
-                    msg.configure(text=teks_sekarang)
+                    msg.configure(text=text[:indeks+1])
                     self._scroll_bottom()
                     self.after(10, lambda: ketik_horizontal(indeks + 1))
             ketik_horizontal()
         else:
-            msg.configure(text=text) # Langsung tembak teks utuh tanpa jeda animasi 10ms per karakter!
+            msg.configure(text=text)
             self._scroll_bottom()
 
-    # ── Typing indicator ──────────────────────────────────────────────────────
     def _show_typing(self):
         self._typing_outer = tk.Frame(self._chat_frame, bg=BG_CARD)
         self._typing_outer.pack(fill="x", pady=(4, 8), padx=12)
 
         avatar_opsi = self._get_avatar_config()
-        padx_text = 4
+        padx_text = 4 if avatar_opsi != "none" else 40
         
-        # SINKRONISASI AVATAR DI INDIKATOR TYPING
         if avatar_opsi != "none":
             avatar_frame = tk.Frame(self._typing_outer, bg=BG_CARD)
             avatar_frame.pack(side="left", anchor="n", pady=6)
             
             if avatar_opsi == "default" or not os.path.exists(avatar_opsi):
-                avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28,
-                                      fg_color=ACCENT, text_color="white",
-                                      font=ctk.CTkFont("Segoe UI", 11, "bold"),
-                                      corner_radius=14)
+                avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28, fg_color=ACCENT, text_color="white",
+                                      font=ctk.CTkFont("Segoe UI", 11, "bold"), corner_radius=14)
                 avatar.pack()
             else:
                 try:
@@ -572,16 +569,11 @@ class NeiraDashboard(ctk.CTk):
                 except Exception:
                     avatar = ctk.CTkLabel(avatar_frame, text="N", width=28, height=28, fg_color=ACCENT, corner_radius=14)
                     avatar.pack()
-        else:
-            padx_text = 40
 
-        # Hilangkan border kotak kaku pada bubble typing (samakan dengan BG_CARD)
         bubble = tk.Frame(self._typing_outer, bg=BG_CARD, highlightthickness=0)
         bubble.pack(side="left", padx=(12, 0))
 
-        self._typing_lbl = tk.Label(bubble, text="Neira sedang memproses ●",
-                                     bg=BG_CARD, fg=TEXT_SEC,
-                                     font=("Segoe UI", 11, "italic"))
+        self._typing_lbl = tk.Label(bubble, text="Neira sedang memproses ●", bg=BG_CARD, fg=TEXT_SEC, font=("Segoe UI", 11, "italic"))
         self._typing_lbl.pack(padx=padx_text, pady=10)
         self._animate_typing()
         self._scroll_bottom()
@@ -598,41 +590,35 @@ class NeiraDashboard(ctk.CTk):
         if hasattr(self, "_typing_outer"):
             self._typing_outer.destroy()
 
-    # ── Utilities ─────────────────────────────────────────────────────────────
     def _scroll_bottom(self):
         self.after(80, lambda: self._canvas.yview_moveto(1.0))
 
     def _clear_chat(self):
         for w in self._chat_frame.winfo_children():
             w.destroy()
-        self.after(200, lambda: self._add_neira_bubble("Chat dibersihkan. Mau ngapain sekarang? ✨"))
+        self.after(200, lambda: self._add_neira_bubble("Chat dibersihkan. Mau ngapain sekarang? ✨", animasi=True))
         
     def _get_avatar_config(self):
-        """Membaca profil.json untuk menentukan jenis avatar Neira saat ini."""
         try:
             from fitur import profil
             data = profil.baca_memori()
-            opsi = data.get("avatar_neira", "none")
+            return data.get("avatar_neira", "none")
         except Exception:
-            opsi = "none"
-            
-        return opsi
+            return "none"
 
 
-# DI PALING BAWAH FILE: gui/dashboard.py
-
+# ─────────────────────────────────────────────────────────────────────────────
+#  RUNNER SCRIPT DASHBOARD SYSTEM
+# ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import sys
     import os
-    # Trik Python: Agar bisa mengimport neira.py yang ada di luar folder gui
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     
-    # Sekarang kita import fungsi otak dari neira.py
     from neira import proses_perintah_backend
     
-    print("🤖 Neira Engine v2.0: Online.")
-    print("⚡ Memulai Neira AI Dashboard System via GUI Module...")
+    print("🤖 Neira Engine v2.0 (Hybrid Streaming Mode): Online.")
+    print("⚡ Memulai Dashboard GUI Module...")
     
-    # Jalankan langsung dashboard-nya dengan menyuntikkan fungsi dari neira
     app = NeiraDashboard(processor_callback=proses_perintah_backend)
     app.mainloop()
