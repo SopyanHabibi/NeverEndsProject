@@ -360,49 +360,78 @@ class NeiraDashboard(ctk.CTk):
         self._add_user_bubble(text)
         self._set_thinking(True)
         
-        # Pemicu tunggal Threading aman (Gak bakal dobel chat lagi)
+        # FIX: Panggil CUKUP SATU KALI SAJA agar tidak bentrok generator objeknya
         threading.Thread(target=self._run_neira, args=(text,), daemon=True).start()
 
     def _run_neira(self, text):
-        """FUNGSI ENGINE HIBRIDA: Cepat memisahkan sistem lokal dan AI Streaming"""
+        """FUNGSI LIVE STREAMING FIX TOTAL: Integrasi Ultra Smooth Buffer Anti-Ngelindur"""
         try:
-            # 1. Deteksi kata kunci sistem lokal
+            # 1. Deteksi dulu apakah text mengandung kata kunci sistem lokal
             perintah_lokal = ["buka", "lihat", "tambah", "hapus", "selesai", "jam berapa", "cuaca", "fokus", "mode", "siapa aku", "profilku", "ku "]
             is_perintah_sistem = any(x in text.lower() for x in perintah_lokal)
 
             if is_perintah_sistem:
                 if self.processor_callback:
-                    # Jalankan perintah sistem lokal via neira.py
-                    reply_lokal = self.processor_callback(text)
-                    if reply_lokal.strip() != "":
-                        self.after(0, lambda: self._add_neira_bubble(reply_lokal, animasi=False))
+                    reply = self.processor_callback(text)
+                    if reply.strip() != "":
+                        self.after(0, lambda: self._add_neira_bubble(reply, animasi=False))
                         self.after(0, lambda: self._set_thinking(False))
-                        return 
+                        return
 
-            # 2. JALUR AI UTAMA (STREAMING QWEN2.5): Dipakai jika tidak ada perintah lokal cocok
-            if self.processor_callback:
-                # Menangkap generator dari neira.py
-                response_generator = self.processor_callback(text)
+            # 2. JALUR AI UTAMA: Panggil ai.ngobrol_santai yang sudah teruji temperaturnya di ai.py
+            from fitur import ai
+            
+            # Jika user nanya pakai prefix atau polosan, kita bersihkan agar prompt murni masuk ke AI
+            pertanyaan_bersih = text.replace("tanya neira", "").replace("neira,", "").strip()
+            if not pertanyaan_bersih:
+                pertanyaan_bersih = text
                 
-                bubble_terbuat = False
-                full_reply = ""
+            response_generator = ai.ngobrol_santai(pertanyaan_bersih)
+            
+            bubble_terbuat = False
+            self._stream_buffer = ""      
+            self._stream_complete = False 
+            self._current_full_reply = ""
 
-                # Kupas kata demi kata yang mengalir secara live dari Ollama lokal
-                for token in response_generator:
-                    full_reply += token
-                    
+            # Fungsi Throttling pengatur FPS agar ketikan mengalir smooth (15ms)
+            def kuas_animasi_smooth():
+                nonlocal bubble_terbuat 
+
+                # Jika buffer masih kosong dan Ollama sedang berpikir di latar belakang, tetap tunggu
+                if len(self._stream_buffer) == 0 and not self._stream_complete:
+                    self.after(15, kuas_animasi_smooth)
+                    return
+
+                if len(self._stream_buffer) > 0 or self._stream_complete:
                     if not bubble_terbuat:
-                        self.after(0, lambda t=full_reply: self._add_neira_bubble_stream(t))
+                        # Matikan status memproses tepat saat huruf pertama dicetak ke layar!
+                        self.after(0, lambda: self._set_thinking(False))
+                        
+                        karakter_awal = self._stream_buffer
+                        self._stream_buffer = ""
+                        self._add_neira_bubble_stream(karakter_awal)
+                        self._current_full_reply = karakter_awal
                         bubble_terbuat = True
                     else:
-                        self.after(0, lambda t=full_reply: self._update_neira_bubble_stream(t))
-            else:
-                self.after(0, lambda: self._add_neira_bubble("⚠️ Sistem: Otak backend belum terhubung.", animasi=False))
+                        teks_baru = self._stream_buffer
+                        self._stream_buffer = ""
+                        self._current_full_reply += teks_baru
+                        self._update_neira_bubble_stream(self._current_full_reply)
+                    
+                    if not self._stream_complete or len(self._stream_buffer) > 0:
+                        self.after(15, kuas_animasi_smooth)
+
+            # Picu jalannya kuas animasi di GUI thread
+            self.after(50, kuas_animasi_smooth)
+
+            # Loop background thread: Isi buffer secepat mungkin dari response ai.py
+            for token in response_generator:
+                self._stream_buffer += token
+
+            self._stream_complete = True
 
         except Exception as e:
-            self.after(0, lambda: self._add_neira_bubble(f"⚠️ Error Engine: {e}", animasi=False))
-        finally:
-            # KUNCI BUG TYPING: Status memproses hancur seketika saat loop beres!
+            self.after(0, lambda: self._add_neira_bubble(f"⚠️ Error Streaming: {e}", animasi=False))
             self.after(0, lambda: self._set_thinking(False))
 
     # ── SISTEM BALON STREAMING LIVE ───────────────────────────────────────────
@@ -573,7 +602,7 @@ class NeiraDashboard(ctk.CTk):
         bubble = tk.Frame(self._typing_outer, bg=BG_CARD, highlightthickness=0)
         bubble.pack(side="left", padx=(12, 0))
 
-        self._typing_lbl = tk.Label(bubble, text="Neira sedang memproses ●", bg=BG_CARD, fg=TEXT_SEC, font=("Segoe UI", 11, "italic"))
+        self._typing_lbl = tk.Label(bubble, text="●", bg=BG_CARD, fg=TEXT_SEC, font=("Segoe UI", 11, "italic"))
         self._typing_lbl.pack(padx=padx_text, pady=10)
         self._animate_typing()
         self._scroll_bottom()
@@ -583,7 +612,7 @@ class NeiraDashboard(ctk.CTk):
             return
         t = self._typing_lbl.cget("text")
         dots = t.count("●")
-        self._typing_lbl.configure(text="Neira sedang memproses " + "●" * ((dots % 3) + 1))
+        self._typing_lbl.configure(text="●" * ((dots % 3) + 1))
         self.after(400, self._animate_typing)
 
     def _hide_typing(self):

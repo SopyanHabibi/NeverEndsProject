@@ -14,12 +14,19 @@ def muat_nama_user():
     return "Ian"
 
 def panggil_ollama_endpoint(prompt_lengkap):
-    """Fungsi inti untuk berkomunikasi dengan aplikasi Ollama di laptopmu"""
+    """Fungsi inti untuk berkomunikasi dengan aplikasi Ollama di laptopmu dengan kontrol emosi AI"""
     url = "http://localhost:11434/api/generate"
+    
+    # KUNCI PENJINAK: Menambahkan pengaturan parameter kontrol (options) agar teks waras & teratur
     payload = {
         "model": "qwen2.5:7b-instruct-q4_K_M",  # Menggunakan model andalanmu!
         "prompt": prompt_lengkap,
-        "stream": True  # Tetap False agar cocok dengan animasi ketik bawaan GUI kamu
+        "stream": True,
+        "options": {
+            "temperature": 0.5,     # Menurunkan keacakan kata (Biar bahasanya waras dan teratur)
+            "top_p": 0.85,          # Membatasi pilihan variasi token agar tetap logis
+            "repeat_penalty": 1.25  # Rem tangan otomatis biar ga terjadi glitch repetisi kata ga jelas
+        }
     }
     
     try:
