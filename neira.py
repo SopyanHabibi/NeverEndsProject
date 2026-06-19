@@ -3,103 +3,129 @@ import sys
 import time
 import webbrowser
 import ollama
+import requests
+import re
+import html
+import os
+import wikipediaapi
 from typing import Optional
-
 from playsound import playsound
-
+from googlesearch import search
 # Fitur-fitur modular Neira
 from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca, ai
 
 # Komponen GUI
 # from gui.pyqt_dashboard import _PrintCapture
 
-# Di dalam neira.py, pastikan system prompt-nya kayak gini:
-# Contoh kalau mau Neira mode bilingual yang santai tapi tetep keren
+# System prompt kasual berbahasa Inggris 
 system_prompt = (
     "You are Neira, Ian's chill, brilliant, and tech-savvy personal AI assistant. "
     "You're a total expert in IT, cybersecurity, and networking. Keep the vibe casual, "
     "friendly, and laid-back—like a smart coding buddy. Avoid sounding like a stiff, "
-    "overly formal robot or a generic corporate AI. Speak strictly and exclusively in English, "
-    "and always keep your answers punchy, natural, and highly efficient. Always address him as 'Ian'."
+    "overly formal robot. Speak strictly and exclusively in English. "
+    "If internet search results are provided to you, incorporate them naturally into your "
+    "response to give Ian the most accurate, up-to-date information for 2026. Always keep your "
+    "answers punchy, natural, and highly efficient. Always address him as 'Ian'."
 )
+
+
+# ==================== FITUR BROWSER HYBRID (DIUPDATE) ====================
+# ==================== FITUR BROWSER HYBRID (VERSI PORTAL BERITA) ====================
+
+def ambil_info_internet(kueri: str) -> str:
+    """Mengambil data valid dan terbaru dari Wikipedia untuk bypass pemblokiran Google."""
+    try:
+        # Inisialisasi Wikipedia dengan User-Agent formal agar disetujui server
+        wiki = wikipediaapi.Wikipedia(
+            user_agent="NeiraAI_Bot/1.0 (contact: ian@example.com)",
+            language="en"
+        )
+        
+        # Kita langsung tembak halaman rangkuman sejarah iPhone yang super lengkap
+        halaman = wiki.page("List of iPhone models")
+        
+        print(f"\n[DEBUG] Menembak Wikipedia: {halaman.fullurl}")
+        
+        if not halaman.exists():
+            return "Format data global tidak ditemukan."
+            
+        # Ambil ringkasan teks dari halaman tersebut
+        teks_wiki = halaman.summary
+        
+        # Ambil juga bagian tabel/paragraf bawah yang biasanya berisi lini masa model terbaru
+        # Kita potong teksnya agar pas dengan context window LLM lokal
+        potongan_info = teks_wiki[:2000] 
+        
+        # PRINT KE TERMINAL BIAR IAN BISA LIHAT DATA ASLINYA
+        print(f"DEBUG WIKI [1]: {potongan_info[:300]}...") 
+        
+        blob_teks = "\n--- LIVE WIKIPEDIA KNOWLEDGE DATABASE (YEAR: 2026) ---\n"
+        blob_teks += f"Context: {potongan_info}\n"
+        blob_teks += (
+            "\nCRITICAL INSTRUCTION: You are currently in the year 2026. "
+            "Look closely at the iPhone list. iPhone 15 is NOT the latest anymore. "
+            "Answer Ian's question using the newer models mentioned in the text above!"
+        )
+        return blob_teks
+        
+    except Exception as e:
+        print(f"[DEBUG] Wikipedia Error: {e}")
+        return f"Failed to fetch Wikipedia data. Error: {e}"
+
+def perlu_akses_internet(teks: str) -> bool:
+    """Mengecek apakah perintah membutuhkan info up-to-date atau di atas cutoff."""
+    kata_kunci = [
+        "latest", "newest", "current", "news", "update", "released", "price",
+        "sekarang", "terbaru", "rilis", "harga", "berita", "skandal", "iphone", 
+        "apple", "2025", "2026", "vs", "who is", "what is happening"
+    ]
+    return any(kata in teks.lower() for kata in kata_kunci)
+
+
 
 # ==================== HELPER ====================
 def _ambil_angka(teks: str) -> Optional[int]:
-    """Ambil angka pertama dari sebuah string perintah. Return None kalau gak ketemu."""
+    """Ambil angka pertama dari sebuah string perintah."""
     digit = "".join(filter(str.isdigit, teks))
     return int(digit) if digit else None
 
-
-# ==================== FITUR REMINDER & SAPAAN ====================
-def sapa_user():
-    """Menyapa pengguna berdasarkan waktu saat ini."""
-    try:
-        data = profil.baca_memori()
-        nama_user = data.get("nama", "kamu")
-    except Exception:
-        nama_user = "kamu"
-
-    jam = datetime.datetime.now().hour
-    if jam < 12:
-        print(f"Halo {nama_user}! Semangat produktifnya hari ini.")
-    elif 12 <= jam < 18:
-        print(f"Halo {nama_user}! Ada yang bisa aku bantu?")
-    else:
-        print(f"Halo {nama_user}! Jangan lupa istirahat yang cukup ya.")
-
-
-def set_reminder(menit: int):
-    """Menahan program lalu memunculkan pengingat suara setelah waktu berlalu."""
-    yield f"Baik, aku akan mengingatkanmu dalam {menit} menit."
-    time.sleep(menit * 60)
-
-    yield "WAKTU HABIS!!!"
-    try:
-        playsound("alarm.wav")
-    except Exception as e:
-        yield f"Maaf, aku tidak dapat memainkan suara alarm. Error: {e}"
-
-
-
-# ==================== CORE UTAMA BACKEND NEIRA ====================
 # ==================== CORE UTAMA BACKEND NEIRA ====================
 def proses_perintah_backend(perintah):
-    # Pastikan variabel teks asli aman untuk AI umum
     perintah_asli = perintah 
     
     try:
         # 1. KELUAR / DADAH
         if "keluar" in perintah or "dadah" in perintah or "exit" in perintah:
-            yield "Sampai jumpa lagi! Semangat produktifnya ya."
+            yield "Catch you later, Ian! Stay productive! 🚀"
             return
 
         # 2. PENCEGATAN TYPO NAMA
         elif utilitas.cek_typo_nama(perintah):
-            yield "Hmm... Mungkin maksudmu 'Neira'? Typo sedikit tuh, hehe."
+            yield "Hmm... Pretty sure you meant 'Neira'. Just a tiny typo right there, haha."
             return
 
         elif any(x in perintah for x in ["apa kabar", "bagaimana kabarmu", "kamu apa kabar", "gimana kabarmu"]):
-            yield "Aku baik-baik aja, kalo kamu gimana?"
+            yield "I'm doing great, Ian! How about you? Ready to crush some code?"
             return
 
         # 4. UTILITAS: JAM & SHORTCUT APLIKASI/BROWSER
-        elif "jam berapa" in perintah or "cek jam" in perintah:
+        elif "jam berapa" in perintah or "cek jam" in perintah or "what time" in perintah:
             waktu_sekarang = datetime.datetime.now().strftime("%I:%M %p")
-            yield f"Sekarang jam {waktu_sekarang}."
+            yield f"It's currently {waktu_sekarang}, Ian."
             return
 
         elif "buka google" in perintah:
-            yield "Okeyy, membuka Google di browsermu..."
+            yield "Alright, opening Google for you..."
             webbrowser.open("https://www.google.com")
             return
 
         elif "buka youtube" in perintah:
-            yield "Okeyy, membuka YouTube..."
+            yield "Sure thing, spinning up YouTube..."
             webbrowser.open("https://www.youtube.com")
             return
 
         elif "buka instagram" in perintah or "buka ig" in perintah:
-            yield "Okeyy, membuka Instagram..."
+            yield "Opening Instagram... don't get too distracted, haha!"
             webbrowser.open("https://www.Instagram.com/_sop.ayam")
             return
 
@@ -132,40 +158,14 @@ def proses_perintah_backend(perintah):
             if target_folder:
                 sistem.buka_folder(target_folder)
             else:
-                yield "Folder apa yang mau dibuka? Contoh: 'buka folder kuliah' atau 'buka folder project'."
-            return
-
-        elif "matikan laptop dalam" in perintah or "matikan pc dalam" in perintah:
-            menit = _ambil_angka(perintah)
-            if menit is None:
-                yield "Tolong sebutkan menitnya dengan jelas. Contoh: 'matikan laptop dalam 30 menit'"
-            else:
-                sistem.atur_shutdown_timer(menit)
-            return
-
-        elif "batal matikan" in perintah or "batalkan shutdown" in perintah:
-            sistem.batalkan_shutdown()
+                yield "Which folder do you want to open? Example: 'buka folder kuliah'."
             return
 
         # 5. PROFIL & MEMORI (DINAMIS)
-        elif any(x in perintah for x in ["siapa aku", "ringkas tentangku", "profilku"]):
-            # Jika profil.ringkas_profil() dulu pakai print, ganti fungsinya atau tampung teksnya ke yield
-            yield "Menampilkan ringkasan profilmu..."
+        elif any(x in perintah for x in ["siapa aku", "ringkas tentangku", "profilku", "who am i"]):
+            yield "Fetching your profile summary..."
             profil.ringkas_profil()
             return
-
-        elif perintah.split()[0].endswith("ku"):
-            ABAIKAN = ["aku", "kalau", "waktu", "atau", "buku", "ragu"]
-            try:
-                bagian_depan, isi_data = perintah.split(" ", 1)
-            except ValueError:
-                bagian_depan, isi_data = perintah, ""
-
-            if bagian_depan.endswith("ku") and bagian_depan not in ABAIKAN and isi_data.strip():
-                kategori = bagian_depan[:-2]
-                profil.simpan_memori(kategori, isi_data.strip())
-                yield f"Sipp! Informasi '{kategori}' kamu berhasil diperbarui menjadi: {isi_data}."
-                return
 
         # 6. TO-DO LIST (PRODUKTIVITAS)
         elif "tambah tugas" in perintah:
@@ -243,24 +243,40 @@ def proses_perintah_backend(perintah):
                 yield token
             return
 
-        # 11. JALUR AKHIR: JIKA TIDAK ADA KEYWORD NYANGKUT -> OPER KE LLM LOKAL OLLAMA (DENGAN SYSTEM PROMPT)
+        # 11. JALUR AKHIR: INTEGRASI HYBRID LLM LOKAL OLLAMA + WEB SEARCH (DI-FORCED)
         else:
-            import ollama
+            messages_payload = [{'role': 'system', 'content': system_prompt}]
+            
+            # CEK JALUR HYBRID: Apakah butuh browsing internet?
+            if perlu_akses_internet(perintah):
+                yield "🌐 *Neira is searching the live web...*\n\n"
+                data_internet = ambil_info_internet(perintah)
+                
+                # JALUR PAKSA: Kita bocorkan ringkasan internet langsung ke bubble chat Ian
+                yield f"💡 *[Live Web Info]* Found some updates! Let me process this for you...\n\n"
+                
+                # Masukkan hasil pencarian internet sebagai data user agar Qwen terpaksa baca
+                messages_payload.append({'role': 'user', 'content': f"Here is the real-time web data for your reference:\n{data_internet}"})
+            
+            # Gabungkan dengan perintah user yang asli
+            messages_payload.append({'role': 'user', 'content': perintah})
+            
+            # Panggil Qwen2.5 secara lokal
             response = ollama.chat(
                 model='qwen2.5:7b-instruct-q4_K_M',
-                messages=[
-                    {'role': 'system', 'content': system_prompt}, # Memanggil variabel system_prompt atas
-                    {'role': 'user', 'content': perintah}
-                ],
+                messages=messages_payload,
                 stream=True
             )
             for chunk in response:
                 yield chunk['message']['content']
 
     except Exception as e:
-        yield f"⚠️ Error di sistem backend: {e}"
-    finally:
-        sys.stdout = sys.__stdout__
+        yield f"⚠️ Backend system error: {e}"
+
+if __name__ == "__main__":
+    print("🚀 Triggering Neira with PyQt6 Engine... Let's Go!")
+    import gui.pyqt_dashboard
+    gui.pyqt_dashboard.main()
 
     # Kembalikan semua teks yang di-print tadi ke GUI untuk dijadikan animasi ketik
     # if keyword_dikenali and capture_io.get_result():

@@ -1,5 +1,6 @@
 import sys
 import html
+import re
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTextEdit, QPushButton, 
                              QVBoxLayout, QHBoxLayout, QWidget, QLabel, 
                              QStackedWidget, QScrollArea, QGraphicsOpacityEffect)
@@ -52,9 +53,13 @@ class NeiraDashboard(QMainWindow):
         super().__init__()
         self.processor_callback = None
         self._thinking = False
+        self._is_searching = False
         self._has_chatted = False
         self.text_buffer = ""
-        self.current_neira_label = None  # Menyimpan label aktif Neira untuk streaming
+        self.raw_accumulated_text = ""  # Menampung teks asli sebelum di-render ke HTML
+        self.current_neira_widget = None  # Menggunakan QTextEdit untuk Rich Text
+        self.thinking_dot_count = 0
+        self.search_anim_frame = 0
         self.init_ui()
 
     def init_ui(self):
@@ -71,8 +76,13 @@ class NeiraDashboard(QMainWindow):
 
         # Timer untuk streaming text Neira agar smooth
         self.typing_timer = QTimer(self)
-        self.typing_timer.setInterval(15)  
+        self.typing_timer.setInterval(10)  
         self.typing_timer.timeout.connect(self._drain_text_buffer)
+
+        # Timer untuk Animasi Berpikir & Searching
+        self.anim_timer = QTimer(self)
+        self.anim_timer.setInterval(400)
+        self.anim_timer.timeout.connect(self._update_thinking_animations)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -168,7 +178,6 @@ class NeiraDashboard(QMainWindow):
         v = QVBoxLayout(page)
         v.setContentsMargins(0, 0, 0, 0)
 
-        # Mengganti QTextBrowser menjadi QScrollArea agar mendukung komponen kustom bermaterial QSS
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setStyleSheet(f"""
@@ -196,13 +205,14 @@ class NeiraDashboard(QMainWindow):
             }}
         """)
 
-        # Kontainer utama di dalam scroll area untuk menampung baris chat
         self.chat_container = QWidget()
         self.chat_container.setStyleSheet(f"background-color: {BG_BASE};")
         self.chat_layout = QVBoxLayout(self.chat_container)
-        self.chat_layout.setContentsMargins(0, 10, 0, 10)
+        
+        # PERBAIKAN 1: Berikan margin kanan sebesar 24px agar tidak mepet scrollbar
+        self.chat_layout.setContentsMargins(0, 10, 24, 10)
         self.chat_layout.setSpacing(20)
-        self.chat_layout.addStretch() # Dorong chat ke atas
+        self.chat_layout.addStretch() 
 
         self.scroll_area.setWidget(self.chat_container)
         v.addWidget(self.scroll_area)
@@ -268,23 +278,78 @@ class NeiraDashboard(QMainWindow):
         self.fade_anim.start()
 
     # --------------------------------------------------------
-    # SMOOTH TYPING MOTOR (Untuk Polosan Chat Neira)
+    # PARSER MARKDOWN KE RICH TEXT (PERBAIKAN 2)
+    # --------------------------------------------------------
+    def _parse_markdown_to_html(self, text):
+        """Mengubah format kaku markdown menjadi HTML beneran biar bisa bold/italic."""
+        # Escape HTML bawaan agar karakter khusus tidak merusak UI
+        escaped = html.escape(text)
+        # Ganti pola **teks** menjadi <b>teks</b>
+        escaped = re.sub(re.compile(r'\*\*(.*?)\*\*'), r'<b>\1</b>', escaped)
+        # Ganti pola *teks* menjadi <i>teks</i>
+        escaped = re.sub(re.compile(r'\*(.*?)\*'), r'<i>\1</i>', escaped)
+        # Ganti ganti baris baru (\n) menjadi tag break HTML
+        escaped = escaped.replace("\n", "<br>")
+        return escaped
+
+    # --------------------------------------------------------
+    # SMOOTH TYPING MOTOR
     # --------------------------------------------------------
     def _drain_text_buffer(self):
-        if self.text_buffer and self.current_neira_label:
-            chunk_size = 2 if len(self.text_buffer) > 10 else 1
-            chars_to_print = self.text_buffer[:chunk_size]
-            self.text_buffer = self.text_buffer[chunk_size:]
+        if self.text_buffer and self.current_neira_widget:
+            # Matikan label animasi berpikir jika teks balasan asli sudah mulai mengalir
+            if "Neira is thinking" in self.text_buffer or "searching" in self.text_buffer:
+                # Jika token berisi instruksi loading dari backend, kita print manual tanpa animasi ngetik biasa
+                chunk = self.text_buffer
+                self.text_buffer = ""
+                self.raw_accumulated_text += chunk
+            else:
+                chunk_size = 3 if len(self.text_buffer) > 15 else 1
+                chars_to_print = self.text_buffer[:chunk_size]
+                self.text_buffer = self.text_buffer[chunk_size:]
+                self.raw_accumulated_text += chars_to_print
 
-            # Update text pada label Neira secara bertahap
-            current_text = self.current_neira_label.text()
-            self.current_neira_label.setText(current_text + chars_to_print)
+            # Render teks terakumulasi ke dalam format HTML (Bold & Italic aktif!)
+            html_content = self._parse_markdown_to_html(self.raw_accumulated_text)
+            self.current_neira_widget.setHtml(html_content)
             
-            # Paksa scrollbar otomatis turun mengikuti jalannya ketikan
-            QTimer.singleShot(10, self._scroll_to_bottom)
+            # Sesuaikan tinggi widget secara dinamis berdasarkan baris teks
+            doc_height = self.current_neira_widget.document().size().height()
+            self.current_neira_widget.setFixedHeight(int(doc_height) + 10)
+
+            QTimer.singleShot(5, self._scroll_to_bottom)
         elif not self._thinking:
             self.typing_timer.stop()
 
+    # --------------------------------------------------------
+    # ENGINE ANIMASI LOADING INDIKATOR (PERBAIKAN 3 & 4)
+    # --------------------------------------------------------
+    def _update_thinking_animations(self):
+        """Looping animasi titik melantun untuk mode berpikir atau browsing internet."""
+        if not self._thinking:
+            return
+            
+        # 1. Animasi Status Label Pojok Kanan Atas
+        frames = ["┤", "┐", "┐", "┶", "┷", "┹"]
+        self.search_anim_frame = (self.search_anim_frame + 1) % len(frames)
+        self.status_label.setText(f"{frames[self.search_anim_frame]}  Processing...")
+        
+        # 2. Animasi Titik Melantun di dalam Chat Box
+        if self.current_neira_widget and not self.raw_accumulated_text:
+            self.thinking_dot_count = (self.thinking_dot_count % 3) + 1
+            dots = "." * self.thinking_dot_count
+            
+            # Cek apakah sedang dalam mode searching atau thinking biasa
+            if getattr(self, '_is_searching', False):
+                self.current_neira_widget.setHtml(
+                    f"<span style='color:{ACCENT_BLUE}; font-style: italic; font-weight: bold;'>"
+                    f"🌐 Tuning into cyber waves & searching the live web{dots}</span>"
+                )
+            else:
+                self.current_neira_widget.setHtml(
+                    f"<span style='color:{TEXT_MUTED}; font-style: italic;'>"
+                    f"✦ Neira is thinking{dots}</span>"
+                )
     def _scroll_to_bottom(self):
         self.scroll_area.verticalScrollBar().setValue(
             self.scroll_area.verticalScrollBar().maximum()
@@ -314,59 +379,63 @@ class NeiraDashboard(QMainWindow):
         self.input_box.clear()
         self._set_thinking(True)
 
-        # 1. ADD BUBBLE USER (Mendukung border-radius asli & fit-content secara alami)
+        # 1. ADD BUBBLE USER (PERBAIKAN 1: Tambah margin kanan agar menjauh dari scroll bar)
         user_row = QHBoxLayout()
-        user_row.setContentsMargins(0, 0, 0, 0)
-        user_row.addStretch() # Dorong ke kanan
+        user_row.setContentsMargins(0, 0, 12, 0)
+        user_row.addStretch()
 
         user_bubble = QLabel(text)
         user_bubble.setWordWrap(True)
-        user_bubble.setMaximumWidth(700) # Batasi lebar maksimal bubble
+        user_bubble.setMaximumWidth(700) 
         user_bubble.setStyleSheet(f"""
             QLabel {{
                 background-color: {USER_BUBBLE_BG};
                 color: {USER_TEXT_COLOR};
                 font-size: 15px;
                 padding: 12px 18px;
-                border-radius: 18px; /* BULAT MELENGKUNG SEMPURNA SEKARANG! */
+                border-radius: 18px;
             }}
         """)
         user_row.addWidget(user_bubble)
-        
-        # Masukkan ke layout chat utama (di atas stretch)
         self.chat_layout.insertLayout(self.chat_layout.count() - 1, user_row)
 
-        # 2. ADD RESPONSE NEIRA (POLOS TANPA BUBBLE + IKON ✦)
+        # 2. ADD RESPONSE NEIRA (Menggunakan QTextEdit read-only untuk support Rich Text)
         neira_row = QHBoxLayout()
-        neira_row.setContentsMargins(0, 5, 0, 5)
+        neira_row.setContentsMargins(0, 5, 12, 5)
         
         neira_icon = QLabel("✦ ")
         neira_icon.setStyleSheet(f"color: {ACCENT_PURPLE}; font-size: 16px; font-weight: bold; background: transparent;")
         neira_icon.setFixedWidth(20)
         neira_icon.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         
-        self.current_neira_label = QLabel("")
-        self.current_neira_label.setWordWrap(True)
-        self.current_neira_label.setStyleSheet(f"""
-            QLabel {{
+        self.current_neira_widget = QTextEdit()
+        self.current_neira_widget.setReadOnly(True)
+        self.current_neira_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.current_neira_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.current_neira_widget.setStyleSheet(f"""
+            QTextEdit {{
                 color: {TEXT_PRIMARY};
                 font-size: 15px;
                 font-weight: 500;
-                line-height: 150%;
                 background: transparent;
+                border: none;
             }}
         """)
+        self.current_neira_widget.setFixedHeight(30) # Tinggi awal untuk tempat loading text
         
         neira_row.addWidget(neira_icon)
-        neira_row.addWidget(self.current_neira_label, stretch=1)
-        
+        neira_row.addWidget(self.current_neira_widget, stretch=1)
         self.chat_layout.insertLayout(self.chat_layout.count() - 1, neira_row)
 
-        # Reset buffer dan picu animasi ketik
+        # Reset buffer memori
         self.text_buffer = ""
+        self.raw_accumulated_text = ""
+        
+        # Aktifkan pemicu ketik dan loop animasi
         self.typing_timer.start()
+        self.anim_timer.start()
 
-        # Jalankan Backend Ollama/Gemini
+        # Jalankan Thread Backend Ollama
         self.worker = NeiraWorker(self.processor_callback, text)
         self.worker.token_received.connect(self._on_token_received)
         self.worker.finished.connect(self._on_worker_finished)
@@ -375,6 +444,19 @@ class NeiraDashboard(QMainWindow):
         QTimer.singleShot(50, self._scroll_to_bottom)
 
     def _on_token_received(self, token):
+        # 1. Jika backend memicu tanda pencarian internet, aktifkan mode animasi searching
+        if "searching the live web" in token.lower() or "searching the live" in token.lower():
+            self._is_searching = True
+            return # Skip teks ini agar tidak dicetak kotor di layar
+
+        # 2. Jika data internet masuk, matikan animasi searching & bersihkan buffer agar teks pengantar terhapus
+        if "[live web info]" in token.lower() or "found some updates" in token.lower():
+            self._is_searching = False
+            self.raw_accumulated_text = "" # WIPE OUT! Hapus jejak teks "[Live Web Info]" agar tidak tampil di layar
+            self.text_buffer = ""          # Bersihkan sisa buffer lama
+            return # Skip token pemicu ini
+
+        # 3. Masukkan token jawaban asli ke dalam buffer text untuk di-render
         self.text_buffer += token
 
     def _on_worker_finished(self):
@@ -383,10 +465,9 @@ class NeiraDashboard(QMainWindow):
     def _set_thinking(self, thinking):
         self._thinking = thinking
         if thinking:
-            self.status_label.setText("●  Memproses...")
-            self.status_label.setStyleSheet("color: #e4b54e; font-size: 12px; font-weight: 500; background: transparent;")
             self.send_button.setDisabled(True)
         else:
+            self.anim_timer.stop()
             self.status_label.setText("●  Online")
             self.status_label.setStyleSheet("color: #23a55a; font-size: 12px; font-weight: 500; background: transparent;")
             self.send_button.setDisabled(False)
