@@ -128,7 +128,7 @@ class NeiraDashboard(QMainWindow):
         greeting.setStyleSheet(f"font-size: 34px; font-weight: 600; color: {ACCENT_PURPLE}; background: transparent;")
         v.addWidget(greeting)
 
-        sub = QLabel("Ada yang bisa ku bantu hari ini?")
+        sub = QLabel("How can I help you today?")
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub.setStyleSheet(f"font-size: 16px; color: {TEXT_MUTED}; background: transparent; margin-bottom: 18px;")
         v.addWidget(sub)
@@ -136,7 +136,7 @@ class NeiraDashboard(QMainWindow):
         chips_row = QHBoxLayout()
         chips_row.setSpacing(10)
         chips_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        for chip_text in ["Cek performa model", "Jelasin konsep RIP v2", "Debug kode Python"]:
+        for chip_text in ["Check a model's performance", "Explain the RIP v2 concept", "who am i?"]:
             chips_row.addWidget(self._make_chip(chip_text))
         chip_wrap = QWidget()
         chip_wrap.setLayout(chips_row)
@@ -223,7 +223,7 @@ class NeiraDashboard(QMainWindow):
         row.setSpacing(12)
 
         self.input_box = QTextEdit()
-        self.input_box.setPlaceholderText("Tanya Neira sesuatu...")
+        self.input_box.setPlaceholderText("Ask Neira...")
         self.input_box.setFixedHeight(52)
         self.input_box.setStyleSheet(f"""
             QTextEdit {{
@@ -444,19 +444,23 @@ class NeiraDashboard(QMainWindow):
         QTimer.singleShot(50, self._scroll_to_bottom)
 
     def _on_token_received(self, token):
-        # 1. Jika backend memicu tanda pencarian internet, aktifkan mode animasi searching
+        # 1. Interceptor Animasi Searching Internet
         if "searching the live web" in token.lower() or "searching the live" in token.lower():
             self._is_searching = True
-            return # Skip teks ini agar tidak dicetak kotor di layar
+            return
 
-        # 2. Jika data internet masuk, matikan animasi searching & bersihkan buffer agar teks pengantar terhapus
         if "[live web info]" in token.lower() or "found some updates" in token.lower():
             self._is_searching = False
-            self.raw_accumulated_text = "" # WIPE OUT! Hapus jejak teks "[Live Web Info]" agar tidak tampil di layar
-            self.text_buffer = ""          # Bersihkan sisa buffer lama
-            return # Skip token pemicu ini
+            self.raw_accumulated_text = ""
+            self.text_buffer = ""
+            return
 
-        # 3. Masukkan token jawaban asli ke dalam buffer text untuk di-render
+        # 2. BARU: Interceptor Animasi Profil (Biar tulisan "Fetching..." langsung terhapus)
+        if "fetching your profile summary" in token.lower():
+            self.raw_accumulated_text = "" # Bersihkan sisa teks loading lama
+            self.text_buffer = ""
+            return
+
         self.text_buffer += token
 
     def _on_worker_finished(self):

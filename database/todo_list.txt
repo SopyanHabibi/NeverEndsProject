@@ -1,6 +1,0 @@
-[x] tambah fungsi double keyword (menyapa kembali dan menanyakan kabar)
-[x] bikin memory (biar ai bisa ingat)
-[ ] statistik produktivitas
-[ ] jadwal harian
-[ ] cuaca
-[ ] makan
