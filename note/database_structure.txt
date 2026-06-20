@@ -1,0 +1,38 @@
+TABEL: sesi_chat (Untuk Sidebar)
+┌────────────┬─────────────────────┬─────────────────────┐
+│ session_id │        judul        │     updated_at      │
+├────────────┼─────────────────────┼─────────────────────┤
+│     1      │ Ngobrol CPU         │ 2026-06-20 16:00    │
+│     2      │ Project Kost Market │ 2026-06-20 16:30    │
+└────────────┴─────────────────────┴─────────────────────┘
+                               │
+                               │ (Berelasi / Terhubung)
+                               ▼
+TABEL: riwayat_chat (Isi Obrolan)
+┌────┬────────────┬───────────┬────────────────────────────────┐
+│ id │ session_id │   role    │            content             │
+├────┼────────────┼───────────┼────────────────────────────────┤
+│ 1  │     1      │ user      │ apa itu cpu?                   │
+│ 2  │     1      │ assistant │ CPU adalah otak komputer...    │
+│ 3  │     2      │ user      │ kelanjutan Kost Market gimana? │
+└────┴────────────┴───────────┴────────────────────────────────┘
+
+Bagaimana Neira Mengatur Memorinya?
+1. Saat tombol "New Chat" (Sesi baru) di klik:
+   - Program bakal membuat session_id baru (misalnya 3 sesi)
+   - Karena 3 sesi masih kosong di database, saat Neira dipanggil
+     fungsi db.ambil_riwayat_terakhir(session_id=3) akan mengembalikan array kosong [].
+   - Hasilnya: Neira cuma disuapin system_prompt + data profil. Dia ingat nama, tapi kalau
+     ngomong "Lanjutin yang kemarin", dia bakal bingung karena tidak ada riwayat chat di sesi 3.
+     Performa jadi ngebut maksimal
+
+2. Saat sesi "Ngobrol CPU" di sidebar diklik:
+   - Program PyQt bakal nge-load session_id 1
+   - Saat dichat, backend langsung menarik 20 chat khusus yang punya session_id = 1
+   - Hasilnya: Neira langsung ingat obrolan lama tentang CPU itu. Kalau ngomong
+     "Lanjutin yang kemarin", Neira bakal nyambung dan langsung jawab detail lanjutannya.
+
+
+2.7jt kk tasya
+1.1jt bg wahyu
+300rb mamak

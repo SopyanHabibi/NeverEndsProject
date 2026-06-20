@@ -1,11 +1,16 @@
 import sys
 import html
 import re
+import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTextEdit, QPushButton, 
                              QVBoxLayout, QHBoxLayout, QWidget, QLabel, 
-                             QStackedWidget, QScrollArea, QGraphicsOpacityEffect)
+                             QStackedWidget, QScrollArea, QGraphicsOpacityEffect,
+                             QLineEdit)
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QPropertyAnimation, QEasingCurve, QTimer
 from PyQt6.QtGui import QFont, QTextCursor
+
+# Perbaikan Impor Database sesuai folder yang kita buat kemarin
+from database import db
 
 # ============================================================
 # DESIGN TOKENS — terinspirasi dari Gemini (dark mode)
@@ -25,27 +30,28 @@ FONT_STACK = "'Google Sans', 'Segoe UI', 'Inter', -apple-system, Roboto, sans-se
 USER_BUBBLE_BG = "#2b2d31"  # Slate Grey premium
 USER_TEXT_COLOR = "#aecbfa" # Biru pucat kontras
 
+# ============================================================
+# SIDEBAR CONFIG
+# ============================================================
+SIDEBAR_COLLAPSED_W = 60
+SIDEBAR_EXPANDED_W  = 260
+
 
 class NeiraWorker(QThread):
     token_received = pyqtSignal(str)
     finished = pyqtSignal()
 
-    def __init__(self, processor_callback, text):
+    def __init__(self, processor_callback, text, session_id):
         super().__init__()
         self.processor_callback = processor_callback
         self.text = text
+        self.session_id = session_id
 
     def run(self):
-        try:
-            if self.processor_callback:
-                generator = self.processor_callback(self.text)
-                if generator:
-                    for token in generator:
-                        self.token_received.emit(token)
-        except Exception as e:
-            self.token_received.emit(f"\n⚠️ Error: {e}\n")
-        finally:
-            self.finished.emit()
+        # Memanggil fungsi generator backend neira secara dinamis
+        for token in self.processor_callback(self.text, self.session_id):
+            self.token_received.emit(token)
+        self.finished.emit()
 
 
 class NeiraDashboard(QMainWindow):
@@ -55,12 +61,137 @@ class NeiraDashboard(QMainWindow):
         self._thinking = False
         self._is_searching = False
         self._has_chatted = False
+        self.sidebar_expanded = False
         self.text_buffer = ""
-        self.raw_accumulated_text = ""  # Menampung teks asli sebelum di-render ke HTML
-        self.current_neira_widget = None  # Menggunakan QTextEdit untuk Rich Text
+        self.raw_accumulated_text = ""  
+        self.current_neira_widget = None  
         self.thinking_dot_count = 0
         self.search_anim_frame = 0
+        
+        # Build UI Utama terlebih dahulu agar layout sidebar tercipta
         self.init_ui()
+        
+        # Inisialisasi Database SQLite
+        db.inisialisasi_db()
+        
+        # Ambil semua sesi yang ada di database
+        semua_sesi = db.ambil_semua_sesi()
+        
+        if semua_sesi:
+            self.current_session_id = semua_sesi[0]["session_id"]
+        else:
+            self.current_session_id = db.buat_sesi_baru("Chat Baru")
+            
+        # Sinkronisasi Database ke UI Sidebar & Layar Utama
+        self.muat_daftar_sidebar()
+        self.muat_konten_chat_ke_layar()
+        
+    def muat_daftar_sidebar(self):
+        """Membaca data sesi dari SQLite dan merendernya ke layout sidebar."""
+        if not hasattr(self, 'sidebar_chat_layout'):
+            return
+
+        # 1. Bersihkan semua widget tombol lama di layout sidebar
+        while self.sidebar_chat_layout.count():
+            item = self.sidebar_chat_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+                
+        # 2. Ambil data sesi terupdate dari SQLite
+        daftar_sesi = db.ambil_semua_sesi()
+        
+        # 3. Render ulang secara dinamis sesuai session_id aktif
+        for sesi in daftar_sesi:
+            sid = sesi["session_id"]
+            judul = sesi["judul"]
+            
+            btn_sesi = QPushButton(f"💬  {judul}")
+            btn_sesi.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_sesi.setFixedHeight(36)
+            btn_sesi.setStyleSheet(self._history_btn_style(is_active=(sid == self.current_session_id)))
+            
+            # Trik Python Lambda scope: ikat s_id=sid agar tidak bentrok saat diclick
+            btn_sesi.clicked.connect(lambda checked, s_id=sid: self.pindah_sesi(s_id))
+            self.sidebar_chat_layout.addWidget(btn_sesi)
+            
+        self.sidebar_chat_layout.addStretch()
+
+    def pindah_sesi(self, session_id):
+        """Fungsi ketika salah satu chat di sidebar diklik Ian."""
+        if self._thinking: 
+            return 
+            
+        self.current_session_id = session_id
+        self.muat_daftar_sidebar() 
+        self.muat_konten_chat_ke_layar() 
+
+    def muat_konten_chat_ke_layar(self):
+        """Membersihkan layar utama dan memuat ulang history bubble chat dari sesi aktif."""
+        # Bersihkan bubble chat di layar lama terlebih dahulu
+        while self.chat_layout.count() > 1:
+            item = self.chat_layout.takeAt(0)
+            sub_layout = item.layout()
+            if sub_layout is not None:
+                while sub_layout.count():
+                    sub_item = sub_layout.takeAt(0)
+                    widget = sub_item.widget()
+                    if widget is not None:
+                        widget.deleteLater()
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        
+        # Ambil riwayat chat khusus session_id ini dari database
+        riwayat = db.ambil_riwayat_terakhir(self.current_session_id, limit=20)
+        
+        if riwayat:
+            self._has_chatted = True
+            self.stack.setCurrentIndex(1) # Pindah ke halaman Chat Area
+            
+            for chat in riwayat:
+                role = chat["role"]
+                content = chat["content"]
+                if role == "user":
+                    self.append_chat_bubble_manual("Ian", content, is_user=True)
+                else:
+                    self.append_chat_bubble_manual("Neira", content, is_user=False)
+        else:
+            self._has_chatted = False
+            self.stack.setCurrentIndex(0) # Kembali ke Welcome Page jika kosong
+
+    def append_chat_bubble_manual(self, sender, text, is_user):
+        """Helper untuk me-render bubble chat statis saat memuat history."""
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 5, 12, 5)
+        
+        if is_user:
+            row.addStretch()
+            bubble = QLabel(text)
+            bubble.setWordWrap(True)
+            bubble.setMaximumWidth(700)
+            bubble.setStyleSheet(f"background-color: {USER_BUBBLE_BG}; color: {USER_TEXT_COLOR}; font-size: 15px; padding: 12px 18px; border-radius: 18px;")
+            row.addWidget(bubble)
+        else:
+            icon = QLabel("✦ ")
+            icon.setStyleSheet(f"color: {ACCENT_PURPLE}; font-size: 16px; font-weight: bold; background: transparent;")
+            icon.setFixedWidth(20)
+            icon.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            
+            widget = QTextEdit()
+            widget.setReadOnly(True)
+            widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            widget.setStyleSheet(f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 500; background: transparent; border: none;")
+            widget.setHtml(self._parse_markdown_to_html(text))
+            
+            row.addWidget(icon)
+            row.addWidget(widget, stretch=1)
+            
+            # Atur tinggi widget pas pas-an sesuai isi teks
+            QTimer.singleShot(10, lambda: widget.setFixedHeight(int(widget.document().size().height()) + 10))
+            
+        self.chat_layout.insertLayout(self.chat_layout.count() - 1, row)
 
     def init_ui(self):
         self.setWindowTitle("Neira AI")
@@ -74,12 +205,10 @@ class NeiraDashboard(QMainWindow):
             }}
         """)
 
-        # Timer untuk streaming text Neira agar smooth
         self.typing_timer = QTimer(self)
         self.typing_timer.setInterval(10)  
         self.typing_timer.timeout.connect(self._drain_text_buffer)
 
-        # Timer untuk Animasi Berpikir & Searching
         self.anim_timer = QTimer(self)
         self.anim_timer.setInterval(400)
         self.anim_timer.timeout.connect(self._update_thinking_animations)
@@ -90,7 +219,175 @@ class NeiraDashboard(QMainWindow):
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)
 
+        self.sidebar_widget = self._build_sidebar()
+        root_layout.addWidget(self.sidebar_widget)
         root_layout.addWidget(self._build_main_area(), stretch=1)
+
+    def _build_sidebar(self):
+        sidebar = QWidget()
+        sidebar.setMinimumWidth(SIDEBAR_COLLAPSED_W)
+        sidebar.setMaximumWidth(SIDEBAR_COLLAPSED_W)
+
+        v = QVBoxLayout(sidebar)
+        v.setContentsMargins(8, 12, 8, 12)
+        v.setSpacing(6)
+        v.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.sidebar_toggle_btn = QPushButton("☰")
+        self.sidebar_toggle_btn.setFixedSize(36, 36)
+        self.sidebar_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sidebar_toggle_btn.setStyleSheet(self._icon_btn_style())
+        self.sidebar_toggle_btn.clicked.connect(self._toggle_sidebar)
+        v.addWidget(self.sidebar_toggle_btn)
+
+        v.addSpacing(8)
+
+        self.new_chat_btn = QPushButton("➕")
+        self.new_chat_btn.setFixedHeight(36)
+        self.new_chat_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.new_chat_btn.setStyleSheet(self._sidebar_btn_style())
+        self.new_chat_btn.clicked.connect(self.aksi_tombol_new_chat) # Diarahkan ke fungsi multi-session asli
+        v.addWidget(self.new_chat_btn)
+
+        self.search_btn = QPushButton("🔍")
+        self.search_btn.setFixedHeight(36)
+        self.search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.search_btn.setStyleSheet(self._sidebar_btn_style())
+        self.search_btn.clicked.connect(lambda: self._set_sidebar(True))
+        v.addWidget(self.search_btn)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Cari percakapan...")
+        self.search_input.setStyleSheet(f"QLineEdit {{ background-color: {BG_SURFACE_2}; border: 1px solid {BORDER_SOFT}; border-radius: 8px; padding: 6px 10px; font-size: 12px; color: {TEXT_PRIMARY}; }} QLineEdit:focus {{ border: 1px solid {ACCENT_PURPLE}; }}")
+        self.search_input.textChanged.connect(self._filter_history)
+        self.search_input.setVisible(False)
+        v.addWidget(self.search_input)
+
+        # FIX BUG LAYOUT: Inisialisasi layout sidebar chat penampung tombol SQLite asli
+        self.sidebar_chat_layout = QVBoxLayout()
+        self.sidebar_chat_layout.setSpacing(4)
+        self.sidebar_chat_layout.setContentsMargins(0, 4, 0, 0)
+
+        history_inner = QWidget()
+        history_inner.setLayout(self.sidebar_chat_layout)
+        history_inner.setStyleSheet("background: transparent;")
+
+        self.history_scroll = QScrollArea()
+        self.history_scroll.setWidgetResizable(True)
+        self.history_scroll.setWidget(history_inner)
+        self.history_scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.history_scroll.setVisible(False)
+        v.addWidget(self.history_scroll, stretch=1)
+
+        self.new_chat_btn.setVisible(False)
+        self.search_btn.setVisible(False)
+
+        self.sidebar = sidebar
+        self._apply_sidebar_style(expanded=False)
+        return sidebar
+
+    def aksi_tombol_new_chat(self):
+        """Membuat sesi obrolan baru yang fresh dan polosan."""
+        if self._thinking: 
+            return
+        
+        id_baru = db.buat_sesi_baru("Chat Baru")
+        self.current_session_id = id_baru
+        
+        # Sembunyikan sidebar kembali biar fokus ngetik
+        self._set_sidebar(False)
+        
+        # Refresh UI tampilan
+        self.muat_daftar_sidebar()
+        self.muat_konten_chat_ke_layar()
+        
+        self.input_box.clear()
+        self.input_box.setFocus()
+
+    def _icon_btn_style(self):
+        return f"QPushButton {{ background-color: transparent; border: none; border-radius: 8px; font-size: 15px; color: {TEXT_PRIMARY}; }} QPushButton:hover {{ background-color: {BG_SURFACE_2}; }}"
+
+    def _sidebar_btn_style(self):
+        return f"QPushButton {{ background-color: transparent; border: none; border-radius: 8px; font-size: 13px; color: {TEXT_PRIMARY}; text-align: left; padding-left: 6px; }} QPushButton:hover {{ background-color: {BG_SURFACE_2}; }}"
+
+    def _history_btn_style(self, is_active=False):
+        """Style tombol riwayat chat di sidebar, dengan efek hover senada tombol menu lain."""
+        if is_active:
+            return f"""
+                QPushButton {{
+                    text-align: left; padding-left: 12px;
+                    background: {BG_SURFACE_2}; color: {TEXT_PRIMARY};
+                    border: none; font-weight: bold; border-radius: 8px;
+                }}
+                QPushButton:hover {{ background: #3c3d40; }}
+            """
+        return f"""
+            QPushButton {{
+                text-align: left; padding-left: 12px;
+                background: transparent; color: {TEXT_MUTED};
+                border: none; border-radius: 8px;
+            }}
+            QPushButton:hover {{ background: {BG_SURFACE_2}; color: {TEXT_PRIMARY}; }}
+        """
+
+    def _apply_sidebar_style(self, expanded):
+        if expanded:
+            self.sidebar.setStyleSheet(f"background-color: {BG_SURFACE}; border-right: 1px solid {BORDER_SOFT};")
+        else:
+            self.sidebar.setStyleSheet(f"background-color: {BG_BASE}; border: none;")
+
+    def _toggle_sidebar(self):
+        self._set_sidebar(not self.sidebar_expanded)
+
+    def _set_sidebar(self, expand):
+        if expand == self.sidebar_expanded:
+            if expand: self.search_input.setFocus()
+            return
+
+        self.sidebar_expanded = expand
+        start_w = self.sidebar.minimumWidth()
+        end_w = SIDEBAR_EXPANDED_W if expand else SIDEBAR_COLLAPSED_W
+
+        if expand:
+            self.sidebar_toggle_btn.setText("✕")
+            self.new_chat_btn.setText("➕  Percakapan Baru")
+            self.search_btn.setText("🔍  Telusuri Percakapan")
+            self.new_chat_btn.setVisible(True)
+            self.search_btn.setVisible(True)
+            self._apply_sidebar_style(expanded=True)
+        else:
+            self.search_input.setVisible(False)
+            self.history_scroll.setVisible(False)
+            self.new_chat_btn.setVisible(False)
+            self.search_btn.setVisible(False)
+            self.sidebar_toggle_btn.setText("☰")
+            self.new_chat_btn.setText("➕")
+            self.search_btn.setText("🔍")
+            self._apply_sidebar_style(expanded=False)
+
+        self.sidebar_anim = QPropertyAnimation(self.sidebar, b"minimumWidth")
+        self.sidebar_anim.setDuration(200)
+        self.sidebar_anim.setStartValue(start_w)
+        self.sidebar_anim.setEndValue(end_w)
+        self.sidebar_anim.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.sidebar_anim.valueChanged.connect(lambda v: self.sidebar.setMaximumWidth(v))
+
+        if expand:
+            def _reveal_expanded_content():
+                self.search_input.setVisible(True)
+                self.history_scroll.setVisible(True)
+                self.search_input.setFocus()
+            self.sidebar_anim.finished.connect(_reveal_expanded_content)
+
+        self.sidebar_anim.start()
+
+    def _filter_history(self, query):
+        query = query.lower().strip()
+        for i in range(self.sidebar_chat_layout.count()):
+            item = self.sidebar_chat_layout.itemAt(i)
+            if item and item.widget():
+                btn = item.widget()
+                btn.setVisible(query in btn.text().lower())
 
     def _build_main_area(self):
         container = QWidget()
@@ -149,20 +446,7 @@ class NeiraDashboard(QMainWindow):
         chip = QPushButton(text)
         chip.setCursor(Qt.CursorShape.PointingHandCursor)
         chip.setFixedHeight(38)
-        chip.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {BG_SURFACE};
-                border: 1px solid {BORDER_SOFT};
-                border-radius: 19px;
-                padding: 0 16px;
-                font-size: 12px;
-                color: {TEXT_PRIMARY};
-            }}
-            QPushButton:hover {{
-                background-color: {BG_SURFACE_2};
-                border: 1px solid #3c3d40;
-            }}
-        """)
+        chip.setStyleSheet(f"QPushButton {{ background-color: {BG_SURFACE}; border: 1px solid {BORDER_SOFT}; border-radius: 19px; padding: 0 16px; font-size: 12px; color: {TEXT_PRIMARY}; }} QPushButton:hover {{ background-color: {BG_SURFACE_2}; border: 1px solid #3c3d40; }}")
         chip.clicked.connect(lambda: self._fill_input(text))
         return chip
 
@@ -180,36 +464,11 @@ class NeiraDashboard(QMainWindow):
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet(f"""
-            QScrollArea {{
-                background-color: {BG_BASE};
-                border: none;
-            }}
-            QScrollBar:vertical {{
-                border: none;
-                background: {BG_BASE};
-                width: 8px;
-                margin: 0px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: {BG_SURFACE_2};
-                min-height: 20px;
-                border-radius: 4px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: #3c3d40;
-            }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-                border: none;
-                background: none;
-            }}
-        """)
+        self.scroll_area.setStyleSheet(f"QScrollArea {{ background-color: {BG_BASE}; border: none; }} QScrollBar:vertical {{ border: none; background: {BG_BASE}; width: 8px; margin: 0px; }} QScrollBar::handle:vertical {{ background: {BG_SURFACE_2}; min-height: 20px; border-radius: 4px; }} QScrollBar::handle:vertical:hover {{ background: #3c3d40; }} QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ border: none; background: none; }}")
 
         self.chat_container = QWidget()
         self.chat_container.setStyleSheet(f"background-color: {BG_BASE};")
         self.chat_layout = QVBoxLayout(self.chat_container)
-        
-        # PERBAIKAN 1: Berikan margin kanan sebesar 24px agar tidak mepet scrollbar
         self.chat_layout.setContentsMargins(0, 10, 24, 10)
         self.chat_layout.setSpacing(20)
         self.chat_layout.addStretch() 
@@ -225,19 +484,7 @@ class NeiraDashboard(QMainWindow):
         self.input_box = QTextEdit()
         self.input_box.setPlaceholderText("Ask Neira...")
         self.input_box.setFixedHeight(52)
-        self.input_box.setStyleSheet(f"""
-            QTextEdit {{
-                background-color: {BG_SURFACE};
-                border: 1px solid {BORDER_SOFT};
-                border-radius: 26px;
-                padding: 13px 20px;
-                font-size: 14px;
-                color: {TEXT_PRIMARY};
-            }}
-            QTextEdit:focus {{
-                border: 1px solid {ACCENT_PURPLE};
-            }}
-        """)
+        self.input_box.setStyleSheet(f"QTextEdit {{ background-color: {BG_SURFACE}; border: 1px solid {BORDER_SOFT}; border-radius: 26px; padding: 13px 20px; font-size: 14px; color: {TEXT_PRIMARY}; }} QTextEdit:focus {{ border: 1px solid {ACCENT_PURPLE}; }}")
         self.input_box.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.input_box.installEventFilter(self)
         row.addWidget(self.input_box)
@@ -245,19 +492,7 @@ class NeiraDashboard(QMainWindow):
         self.send_button = QPushButton("➤")
         self.send_button.setFixedSize(48, 48)
         self.send_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.send_button.setStyleSheet(f"""
-            QPushButton {{
-                background: {GRADIENT};
-                color: white;
-                border-radius: 24px;
-                font-size: 16px;
-                border: none;
-            }}
-            QPushButton:disabled {{
-                background: {BG_SURFACE_2};
-                color: {TEXT_MUTED};
-            }}
-        """)
+        self.send_button.setStyleSheet(f"QPushButton {{ background: {GRADIENT}; color: white; border-radius: 24px; font-size: 16px; border: none; }} QPushButton:disabled {{ background: {BG_SURFACE_2}; color: {TEXT_MUTED}; }}")
         self.send_button.clicked.connect(self._on_send)
         row.addWidget(self.send_button)
 
@@ -277,29 +512,16 @@ class NeiraDashboard(QMainWindow):
         self.fade_anim.valueChanged.connect(lambda v: change_index() if v < 0.1 else None)
         self.fade_anim.start()
 
-    # --------------------------------------------------------
-    # PARSER MARKDOWN KE RICH TEXT (PERBAIKAN 2)
-    # --------------------------------------------------------
     def _parse_markdown_to_html(self, text):
-        """Mengubah format kaku markdown menjadi HTML beneran biar bisa bold/italic."""
-        # Escape HTML bawaan agar karakter khusus tidak merusak UI
         escaped = html.escape(text)
-        # Ganti pola **teks** menjadi <b>teks</b>
         escaped = re.sub(re.compile(r'\*\*(.*?)\*\*'), r'<b>\1</b>', escaped)
-        # Ganti pola *teks* menjadi <i>teks</i>
         escaped = re.sub(re.compile(r'\*(.*?)\*'), r'<i>\1</i>', escaped)
-        # Ganti ganti baris baru (\n) menjadi tag break HTML
         escaped = escaped.replace("\n", "<br>")
         return escaped
 
-    # --------------------------------------------------------
-    # SMOOTH TYPING MOTOR
-    # --------------------------------------------------------
     def _drain_text_buffer(self):
         if self.text_buffer and self.current_neira_widget:
-            # Matikan label animasi berpikir jika teks balasan asli sudah mulai mengalir
-            if "Neira is thinking" in self.text_buffer or "searching" in self.text_buffer:
-                # Jika token berisi instruksi loading dari backend, kita print manual tanpa animasi ngetik biasa
+            if "neira is thinking" in self.text_buffer.lower() or "searching the live web" in self.text_buffer.lower():
                 chunk = self.text_buffer
                 self.text_buffer = ""
                 self.raw_accumulated_text += chunk
@@ -309,11 +531,9 @@ class NeiraDashboard(QMainWindow):
                 self.text_buffer = self.text_buffer[chunk_size:]
                 self.raw_accumulated_text += chars_to_print
 
-            # Render teks terakumulasi ke dalam format HTML (Bold & Italic aktif!)
             html_content = self._parse_markdown_to_html(self.raw_accumulated_text)
             self.current_neira_widget.setHtml(html_content)
             
-            # Sesuaikan tinggi widget secara dinamis berdasarkan baris teks
             doc_height = self.current_neira_widget.document().size().height()
             self.current_neira_widget.setFixedHeight(int(doc_height) + 10)
 
@@ -321,25 +541,18 @@ class NeiraDashboard(QMainWindow):
         elif not self._thinking:
             self.typing_timer.stop()
 
-    # --------------------------------------------------------
-    # ENGINE ANIMASI LOADING INDIKATOR (PERBAIKAN 3 & 4)
-    # --------------------------------------------------------
     def _update_thinking_animations(self):
-        """Looping animasi titik melantun untuk mode berpikir atau browsing internet."""
         if not self._thinking:
             return
             
-        # 1. Animasi Status Label Pojok Kanan Atas
         frames = ["┤", "┐", "┐", "┶", "┷", "┹"]
         self.search_anim_frame = (self.search_anim_frame + 1) % len(frames)
         self.status_label.setText(f"{frames[self.search_anim_frame]}  Processing...")
         
-        # 2. Animasi Titik Melantun di dalam Chat Box
         if self.current_neira_widget and not self.raw_accumulated_text:
             self.thinking_dot_count = (self.thinking_dot_count % 3) + 1
             dots = "." * self.thinking_dot_count
             
-            # Cek apakah sedang dalam mode searching atau thinking biasa
             if getattr(self, '_is_searching', False):
                 self.current_neira_widget.setHtml(
                     f"<span style='color:{ACCENT_BLUE}; font-style: italic; font-weight: bold;'>"
@@ -350,6 +563,7 @@ class NeiraDashboard(QMainWindow):
                     f"<span style='color:{TEXT_MUTED}; font-style: italic;'>"
                     f"✦ Neira is thinking{dots}</span>"
                 )
+
     def _scroll_to_bottom(self):
         self.scroll_area.verticalScrollBar().setValue(
             self.scroll_area.verticalScrollBar().maximum()
@@ -372,6 +586,13 @@ class NeiraDashboard(QMainWindow):
         if not text:
             return
 
+        # Ambil judul otomatis dari 5 kata pertama teks user untuk update nama sesi di SQLite jika masih berstatus "Chat Baru"
+        riwayat_saat_ini = db.ambil_riwayat_terakhir(self.current_session_id, limit=2)
+        if not riwayat_saat_ini:
+            potongan_judul = " ".join(text.split()[:5])
+            if len(potongan_judul) > 25: potongan_judul = potongan_judul[:25] + "..."
+            db.update_judul_sesi(self.current_session_id, potongan_judul)
+
         if not self._has_chatted:
             self._has_chatted = True
             self._animate_to_page(1)
@@ -379,7 +600,7 @@ class NeiraDashboard(QMainWindow):
         self.input_box.clear()
         self._set_thinking(True)
 
-        # 1. ADD BUBBLE USER (PERBAIKAN 1: Tambah margin kanan agar menjauh dari scroll bar)
+        # 1. ADD BUBBLE USER 
         user_row = QHBoxLayout()
         user_row.setContentsMargins(0, 0, 12, 0)
         user_row.addStretch()
@@ -387,19 +608,11 @@ class NeiraDashboard(QMainWindow):
         user_bubble = QLabel(text)
         user_bubble.setWordWrap(True)
         user_bubble.setMaximumWidth(700) 
-        user_bubble.setStyleSheet(f"""
-            QLabel {{
-                background-color: {USER_BUBBLE_BG};
-                color: {USER_TEXT_COLOR};
-                font-size: 15px;
-                padding: 12px 18px;
-                border-radius: 18px;
-            }}
-        """)
+        user_bubble.setStyleSheet(f"QLabel {{ background-color: {USER_BUBBLE_BG}; color: {USER_TEXT_COLOR}; font-size: 15px; padding: 12px 18px; border-radius: 18px; }}")
         user_row.addWidget(user_bubble)
         self.chat_layout.insertLayout(self.chat_layout.count() - 1, user_row)
 
-        # 2. ADD RESPONSE NEIRA (Menggunakan QTextEdit read-only untuk support Rich Text)
+        # 2. ADD RESPONSE NEIRA
         neira_row = QHBoxLayout()
         neira_row.setContentsMargins(0, 5, 12, 5)
         
@@ -412,39 +625,29 @@ class NeiraDashboard(QMainWindow):
         self.current_neira_widget.setReadOnly(True)
         self.current_neira_widget.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.current_neira_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.current_neira_widget.setStyleSheet(f"""
-            QTextEdit {{
-                color: {TEXT_PRIMARY};
-                font-size: 15px;
-                font-weight: 500;
-                background: transparent;
-                border: none;
-            }}
-        """)
-        self.current_neira_widget.setFixedHeight(30) # Tinggi awal untuk tempat loading text
+        self.current_neira_widget.setStyleSheet(f"QTextEdit {{ color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 500; background: transparent; border: none; }}")
+        self.current_neira_widget.setFixedHeight(30) 
         
         neira_row.addWidget(neira_icon)
         neira_row.addWidget(self.current_neira_widget, stretch=1)
         self.chat_layout.insertLayout(self.chat_layout.count() - 1, neira_row)
 
-        # Reset buffer memori
         self.text_buffer = ""
         self.raw_accumulated_text = ""
         
-        # Aktifkan pemicu ketik dan loop animasi
         self.typing_timer.start()
         self.anim_timer.start()
 
-        # Jalankan Thread Backend Ollama
-        self.worker = NeiraWorker(self.processor_callback, text)
+        # FIX BUG WORKER ARGUMEN: Masukkan callback neira, input teks, dan session_id aktif
+        self.worker = NeiraWorker(self.processor_callback, text, self.current_session_id)
         self.worker.token_received.connect(self._on_token_received)
         self.worker.finished.connect(self._on_worker_finished)
+        self.worker.finished.connect(self.muat_daftar_sidebar) # Judul sidebar otomatis ke-refresh begitu AI kelar ngomong
         self.worker.start()
         
         QTimer.singleShot(50, self._scroll_to_bottom)
 
     def _on_token_received(self, token):
-        # 1. Interceptor Animasi Searching Internet
         if "searching the live web" in token.lower() or "searching the live" in token.lower():
             self._is_searching = True
             return
@@ -455,9 +658,8 @@ class NeiraDashboard(QMainWindow):
             self.text_buffer = ""
             return
 
-        # 2. BARU: Interceptor Animasi Profil (Biar tulisan "Fetching..." langsung terhapus)
         if "fetching your profile summary" in token.lower():
-            self.raw_accumulated_text = "" # Bersihkan sisa teks loading lama
+            self.raw_accumulated_text = "" 
             self.text_buffer = ""
             return
 

@@ -4,12 +4,15 @@ import os
 import webbrowser
 import ollama
 import wikipediaapi
+import threading
 from typing import Optional
-from playsound import playsound
-from database import db
 
-# Fitur-fitur modular Neira
-from fitur import utilitas, profil, produktivitas, jadwal, fokus, sistem, cuaca, ai
+# Kita kunci path absolut agar db_neira selalu sinkron di satu tempat
+DIR_NEIRA = os.path.dirname(os.path.abspath(__file__))
+PATH_DB_ABSOLUT = os.path.join(DIR_NEIRA, "neira_data.db")
+
+from database import db
+db.DB_FILE = PATH_DB_ABSOLUT
 
 # System prompt kasual berbahasa Inggris 
 system_prompt = (
@@ -21,9 +24,6 @@ system_prompt = (
     "response to give Ian the most accurate, up-to-date information for 2026. Always keep your "
     "answers punchy, natural, and highly efficient. Always address him as 'Ian'."
 )
-
-# Memori jangka pendek (Short-term Chat History)
-riwayat_obrolan = []
 
 # ==================== FITUR BROWSER HYBRID ====================
 
@@ -43,8 +43,6 @@ def ambil_info_internet(kueri: str) -> str:
             
         teks_wiki = halaman.summary
         potongan_info = teks_wiki[:2000] 
-        
-        print(f"DEBUG WIKI [1]: {potongan_info[:300]}...") 
         
         blob_teks = "\n--- LIVE WIKIPEDIA KNOWLEDGE DATABASE (YEAR: 2026) ---\n"
         blob_teks += f"Context: {potongan_info}\n"
@@ -77,16 +75,11 @@ def _ambil_angka(teks: str) -> Optional[int]:
     return int(digit) if digit else None
 
 # ==================== CORE UTAMA BACKEND NEIRA ====================
-def proses_perintah_backend(perintah):
-    global riwayat_obrolan
-    
+def proses_perintah_backend(perintah, session_id):
+    """Sistem Backend Neira dengan dukungan penuh Session-ID database."""
     try:
-        # Masukkan chat user saat ini ke riwayat memori
-        riwayat_obrolan.append({"role": "user", "content": perintah})
-        
-        # Batasi memori agar tidak overcapacity (Ingat 20 chat terakhir)
-        if len(riwayat_obrolan) > 20:
-            riwayat_obrolan = riwayat_obrolan[-20:]
+        # Inisialisasi database di awal
+        db.inisialisasi_db()
         
         # 1. KELUAR / DADAH
         if "goodbye" in perintah or "bye" in perintah or "exit" in perintah:
@@ -94,7 +87,7 @@ def proses_perintah_backend(perintah):
             return
 
         # 2. PENCEGATAN TYPO NAMA
-        elif utilitas.cek_typo_nama(perintah):
+        elif "niera" in perintah.lower() or "nera" in perintah.lower():
             yield "Hmm... Pretty sure you meant 'Neira'. Just a tiny typo right there, haha."
             return
 
@@ -118,133 +111,12 @@ def proses_perintah_backend(perintah):
             webbrowser.open("https://www.youtube.com")
             return
 
-        elif "open instagram" in perintah or "open ig" in perintah:
-            yield "Opening Instagram... don't get too distracted, haha!"
-            webbrowser.open("https://www.Instagram.com/_sop.ayam")
-            return
-
-        elif "open chrome" in perintah:
-            sistem.buka_aplikasi("chrome")
-            return
-
-        elif "open vscode" in perintah or "open vs code" in perintah:
-            sistem.buka_aplikasi("vscode")
-            return
-
-        elif "open notepad" in perintah:
-            sistem.buka_aplikasi("notepad")
-            return
-
-        elif "open calculator" in perintah:
-            sistem.buka_aplikasi("calc")
-            return
-
-        elif "coding mode" in perintah or "time to code" in perintah:
-            sistem.buka_workspace("ngoding")
-            return
-
-        elif "study mode" in perintah or "time to study" in perintah:
-            sistem.buka_workspace("kuliah")
-            return
-
-        elif "open folder" in perintah:
-            target_folder = perintah.replace("open folder", "").strip()
-            if target_folder:
-                sistem.buka_folder(target_folder)
-            else:
-                yield "Which folder do you want to open? Example: 'open folder kuliah'."
-            return
-
-        # 4. PROFIL & MEMORI
-        elif any(x in perintah for x in ["who am i", "summarize my profile", "my profile"]):
-            yield "Fetching your profile summary..."
-            yield from profil.ringkas_profil()
-            return
-
-        # 5. TO-DO LIST (PRODUKTIVITAS)
-        elif "add task" in perintah:
-            tugas_baru = perintah.replace("add task", "").strip()
-            produktivitas.add_tasks(tugas_baru)
-            return
-
-        elif any(x in perintah for x in ["view tasks", "view my tasks", "today's tasks"]):
-            produktivitas.view_tasks()
-            return
-
-        elif "complete task" in perintah or "complete no" in perintah:
-            nomor = _ambil_angka(perintah)
-            if nomor is None:
-                yield "Please enter a valid task number. Example: 'complete task 1'"
-            else:
-                produktivitas.mark_done(nomor)
-            return
-
-        elif "delete task" in perintah or "delete no" in perintah:
-            nomor = _ambil_angka(perintah)
-            if nomor is None:
-                yield "Please enter a valid task number. Example: 'delete task 1'"
-            else:
-                produktivitas.delete_tasks(nomor)
-            return
-
-        # 6. SESI FOKUS
-        elif "start focus session" in perintah:
-            menit = _ambil_angka(perintah)
-            if menit is None:
-                yield "Please enter a clear number of minutes. Example: 'start focus session 45 minutes'"
-            else:
-                fokus.mulai_sesi(menit)
-            return
-
-        elif "cancel session" in perintah or "stop session" in perintah:
-            fokus.batalkan_sesi()
-            return
-
-        elif "focus session report" in perintah or "view focus session report" in perintah:
-            fokus.lihat_statistik_fokus()
-            return
-
-        elif "view statistics" in perintah or "statistics" in perintah:
-            produktivitas.view_statistics()
-            return
-
-        # 7. JADWAL HARIAN
-        elif "add schedule" in perintah or ("schedule at" in perintah and "for" in perintah):
-            try:
-                bagian_jam = perintah.split("at ")[1].split("for ")[0].strip()
-                bagian_agenda = perintah.split("for ")[1].strip()
-                jadwal.add_jadwal(bagian_jam, bagian_agenda)
-            except IndexError:
-                yield "Wrong pattern. Example: 'schedule at 01:00 pm for coding'"
-            return
-
-        elif any(x in perintah for x in ["what's next", "upcoming schedule"]):
-            jadwal.cek_agenda_mendatang()
-            return
-
-        elif "view schedule" in perintah:
-            yield jadwal.lihat_semua_jadwal()
-            return
-
-        # 8. INFORMASI LAINNYA
-        elif "weather today" in perintah or "weather report city" in perintah:
-            cuaca.cek_cuaca()
-            return
-
-        elif "task recommendation" in perintah or "priority" in perintah or "schedule analysis" in perintah:
-            for token in ai.analisis_prioritas(perintah):
-                yield token
-            return
-        
-        # 9. JALUR UTAMA LLM + DYNAMIC SQLITE CONTEXT INTEGRATION
+        # 4. JALUR UTAMA LLM + DYNAMIC MULTI-SESSION CONTEXT
         else:
-            # A. PASTIKAN DATABASE DIINISIALISASI
-            db.inisialisasi_db()
+            # FIX BUG 1: Langsung simpan chat user sekarang juga ke dalam session_id aktif
+            db.simpan_chat(session_id, "user", perintah)
             
-            # B. KUNCI UTAMA: SIMPAN CHAT USER SEKARANG JUGA (Jangan ditunda!)
-            db.simpan_chat("user", perintah)
-            
-            # Ambil data profil dari SQLite
+            # Ambil memori profil jangka panjang (Profil Ian)
             data_profil_ian = db.ambil_semua_profil()
             str_konteks_profil = ", ".join([f"{k}: {v}" for k, v in data_profil_ian.items()])
             
@@ -254,18 +126,18 @@ def proses_perintah_backend(perintah):
             
             messages_payload = [{'role': 'system', 'content': dynamic_system_prompt}]
             
-            # Jalur Cek Internet
+            # Deteksi Pencarian Web
             if perlu_akses_internet(perintah):
                 yield "🌐 *Neira is searching the live web...*\n\n"
                 data_internet = ambil_info_internet(perintah)
                 yield f"💡 *[Live Web Info]* Found some updates! Let me process this for you...\n\n"
                 messages_payload.append({'role': 'user', 'content': f"Here is the real-time web data for your reference:\n{data_internet}"})
             
-            # C. AMBIL RIWAYAT CHAT TERAKHIR (Termasuk chat user yang barusan disimpan!)
-            riwayat_chat_sqlite = db.ambil_riwayat_terakhir(limit=20)
+            # FIX BUG 2: Hanya ambil 20 chat terakhir khusus dari session_id yang aktif!
+            riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=20)
             messages_payload.extend(riwayat_chat_sqlite)
             
-            # Panggil Ollama Qwen
+            # Panggil Ollama
             response = ollama.chat(
                 model='qwen2.5:7b-instruct-q4_K_M',
                 messages=messages_payload,
@@ -278,11 +150,10 @@ def proses_perintah_backend(perintah):
                 respons_lengkap_neira += token
                 yield token
                 
-            # Simpan chat asisten ke database
-            db.simpan_chat("assistant", respons_lengkap_neira)
+            # Simpan balasan asisten ke db session terkait
+            db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
             
-            # AKALIN DI SINI: Suruh proses pengingat otomatis jalan di "jalur bayangan"
-            import threading
+            # FIX BUG 3: Jalankan auto remember di Thread terpisah agar UI gak "Processing" kelamaan
             threading.Thread(
                 target=neira_auto_remember, 
                 args=(perintah, respons_lengkap_neira), 
@@ -296,7 +167,6 @@ def neira_auto_remember(perintah_user: str, jawaban_neira: str):
     """Menyuruh Qwen mendeteksi informasi penting secara otomatis untuk disimpan ke SQLite."""
     import json
     try:
-        # Prompt khusus agar Qwen mengekstrak fakta penting dari obrolan dalam format JSON
         prompt_memori = (
             f"Analyze this conversation turn between Ian and you.\n"
             f"Ian said: '{perintah_user}'\n"
@@ -313,13 +183,11 @@ def neira_auto_remember(perintah_user: str, jawaban_neira: str):
             messages=[{'role': 'user', 'content': prompt_memori}]
         )
         
-        # FIX BARIS INI: Menghapus sisa block markdown dengan benar
         raw_json = response['message']['content'].strip().replace("```json", "").replace("```", "")
         fakta_baru = json.loads(raw_json)
         
-        # Jika ditemukan ada fakta baru, langsung masukkan ke SQLite!
         for kunci, nilai in fakta_baru.items():
-            if nilai: # Pastikan nilainya tidak kosong
+            if nilai: 
                 print(f"[SQLITE AUTO-REMEMBER] Saved -> {kunci}: {nilai}")
                 db.simpan_profil(kunci, nilai)
                 
