@@ -88,13 +88,32 @@ def update_judul_sesi(session_id: int, pesan_pertama: str):
     conn.commit()
     conn.close()
 
-def hapus_sesi(session_id: int):
-    """Menghapus sesi chat tertentu beserta seluruh isi obrolannya."""
+def hapus_sesi(session_id):
+    """Menghapus sesi beserta seluruh riwayat chat di dalamnya."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM sesi_chat WHERE session_id = ?", (session_id,))
-    conn.commit()
-    conn.close()
+    try:
+        # Hapus riwayat chat-nya dulu (Foreign Key friendly)
+        cursor.execute("DELETE FROM riwayat_chat WHERE session_id = ?", (session_id,))
+        # Hapus sesinya
+        cursor.execute("DELETE FROM sesi_chat WHERE session_id = ?", (session_id,))
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal menghapus sesi: {e}")
+    finally:
+        conn.close()
+
+def ubah_judul_sesi(session_id, judul_baru):
+    """Fitur rename manual untuk judul sesi chat."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE sesi_chat SET judul = ? WHERE session_id = ?", (judul_baru, session_id))
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal mengubah judul: {e}")
+    finally:
+        conn.close()
 
 def simpan_chat(session_id: int, role: str, content: str):
     """Menyimpan chat berdasarkan session_id yang sedang aktif."""

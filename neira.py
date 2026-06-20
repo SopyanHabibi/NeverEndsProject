@@ -193,6 +193,13 @@ def neira_auto_remember(perintah_user: str, jawaban_neira: str):
                 
     except Exception as e:
         print(f"[DEBUG AUTO-REMEMBER ERROR]: {e}")
+        
+# Tambahkan logika ini di neira.py kamu saat sesi baru terdeteksi
+# def buat_ringkasan_judul_ai(teks_user, teks_neira):
+#     prompt = f"Ringkas percakapan ini menjadi judul maksimal 3 kata tanpa tanda kutip. User: '{teks_user}' AI: '{teks_neira}'"
+#     # Panggil model Qwen kamu secara instan tanpa streaming khusus untuk baris ini
+#     judul_singkat = model.generate(prompt)
+#     return judul_singkat
 
 
 if __name__ == "__main__":

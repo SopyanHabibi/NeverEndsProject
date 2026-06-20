@@ -5,7 +5,7 @@ import os
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTextEdit, QPushButton, 
                              QVBoxLayout, QHBoxLayout, QWidget, QLabel, 
                              QStackedWidget, QScrollArea, QGraphicsOpacityEffect,
-                             QLineEdit)
+                             QLineEdit, QMenu, QInputDialog)
 from PyQt6.QtCore import QThread, pyqtSignal, Qt, QPropertyAnimation, QEasingCurve, QTimer
 from PyQt6.QtGui import QFont, QTextCursor
 
@@ -54,6 +54,91 @@ class NeiraWorker(QThread):
         self.finished.emit()
 
 
+class HistoryItemWidget(QWidget):
+    clicked = pyqtSignal(int) # mengirim session_id
+    refresh_needed = pyqtSignal()
+
+    def __init__(self, session_id, judul, is_active):
+        super().__init__()
+        self.session_id = session_id
+        self.judul = judul
+        self.is_active = is_active
+        self.init_ui()
+
+    def init_ui(self):
+        self.setFixedHeight(38)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(8, 0, 4, 0)
+        layout.setSpacing(4)
+
+        # Tombol Utama isi konten teks judul chat
+        self.btn_utama = QPushButton(f"💬  {self.judul}")
+        self.btn_utama.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_utama.setSizePolicy(self.btn_utama.sizePolicy().Policy.Expanding, self.btn_utama.sizePolicy().Policy.Preferred)
+        
+        # Style base item
+        if self.is_active:
+            self.btn_utama.setStyleSheet(f"text-align: left; background: transparent; color: {TEXT_PRIMARY}; border: none; font-weight: bold; font-size: 13px;")
+            self.setStyleSheet(f"background-color: {BG_SURFACE_2}; border-radius: 8px;")
+        else:
+            self.btn_utama.setStyleSheet(f"text-align: left; background: transparent; color: {TEXT_MUTED}; border: none; font-size: 13px;")
+            self.setStyleSheet("background-color: transparent; border-radius: 8px;")
+
+        self.btn_utama.clicked.connect(lambda: self.clicked.emit(self.session_id))
+        layout.addWidget(self.btn_utama)
+
+        # Tombol Titik Tiga Menu (Sembunyikan secara default)
+        self.btn_menu = QPushButton("•••")
+        self.btn_menu.setFixedSize(26, 26)
+        self.btn_menu.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_menu.setStyleSheet(f"QPushButton {{ background: transparent; color: {TEXT_MUTED}; border: none; border-radius: 4px; font-weight: bold; }} QPushButton:hover {{ background-color: #3c3d40; color: white; }}")
+        self.btn_menu.setVisible(False) 
+        self.btn_menu.clicked.connect(self.buka_context_menu)
+        layout.addWidget(self.btn_menu)
+
+    # Deteksi Cursor Masuk Area Widget (Hover In)
+    def enterEvent(self, event):
+        self.btn_menu.setVisible(True)
+        if not self.is_active:
+            self.setStyleSheet(f"background-color: {BG_SURFACE_2}40; border-radius: 8px;")
+        super().enterEvent(event)
+
+    # Deteksi Cursor Keluar Area Widget (Hover Out)
+    def leaveEvent(self, event):
+        self.btn_menu.setVisible(False)
+        if not self.is_active:
+            self.setStyleSheet("background-color: transparent;")
+        super().leaveEvent(event)
+
+    def buka_context_menu(self):
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{ background-color: {BG_SURFACE}; color: {TEXT_PRIMARY}; border: 1px solid {BORDER_SOFT}; border-radius: 8px; padding: 4px; }}
+            QMenu::item {{ padding: 6px 20px; border-radius: 4px; }}
+            QMenu::item:selected {{ background-color: {BG_SURFACE_2}; color: white; }}
+        """)
+        
+        aksi_rename = menu.addAction("✏️  Rename")
+        aksi_delete = menu.addAction("🗑️  Delete Chat")
+        
+        pilihan = menu.exec(self.btn_menu.mapToGlobal(self.btn_menu.rect().bottomLeft()))
+        
+        if pilihan == aksi_rename:
+            teks_baru, ok = QInputDialog.getText(self, "Rename Chat", "Masukkan nama baru percakapan:", text=self.judul)
+            if ok and teks_baru.strip():
+                db.update_judul_sesi(self.session_id, teks_baru.strip())
+                self.refresh_needed.emit()
+                
+        elif pilihan == aksi_delete:
+            # Panggil fungsi hapus di module db kamu
+            if hasattr(db, 'hapus_sesi'):
+                db.hapus_sesi(self.session_id)
+            else:
+                # Fallback aman jika fungsi hapus belum kamu buat di database.py
+                print(f"Fungsi hapus_sesi belum diimplementasi di database.py untuk session: {self.session_id}")
+            self.refresh_needed.emit()
+
+
 class NeiraDashboard(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -68,13 +153,11 @@ class NeiraDashboard(QMainWindow):
         self.thinking_dot_count = 0
         self.search_anim_frame = 0
         
-        # Build UI Utama terlebih dahulu agar layout sidebar tercipta
+        # 1. BUAT UI DULUAN (Biar layout sidebar chat tercipta sempurna)
         self.init_ui()
         
-        # Inisialisasi Database SQLite
+        # 2. SELESAIKAN URUSAN DATABASE
         db.inisialisasi_db()
-        
-        # Ambil semua sesi yang ada di database
         semua_sesi = db.ambil_semua_sesi()
         
         if semua_sesi:
@@ -82,43 +165,41 @@ class NeiraDashboard(QMainWindow):
         else:
             self.current_session_id = db.buat_sesi_baru("Chat Baru")
             
-        # Sinkronisasi Database ke UI Sidebar & Layar Utama
+        # 3. ISI DATA KE SIDEBAR
         self.muat_daftar_sidebar()
-        self.muat_konten_chat_ke_layar()
         
+        # 4. SOLUSI ESTETIKA: Paksa layar utama balik ke Welcome Page saat aplikasi baru dibuka
+        self._has_chatted = False
+        self.stack.setCurrentIndex(0) 
+
     def muat_daftar_sidebar(self):
-        """Membaca data sesi dari SQLite dan merendernya ke layout sidebar."""
+        """Membaca data sesi dari SQLite dan merendernya menggunakan Custom Hover Widget."""
         if not hasattr(self, 'sidebar_chat_layout'):
             return
 
-        # 1. Bersihkan semua widget tombol lama di layout sidebar
         while self.sidebar_chat_layout.count():
             item = self.sidebar_chat_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
                 
-        # 2. Ambil data sesi terupdate dari SQLite
         daftar_sesi = db.ambil_semua_sesi()
         
-        # 3. Render ulang secara dinamis sesuai session_id aktif
         for sesi in daftar_sesi:
             sid = sesi["session_id"]
             judul = sesi["judul"]
+            is_active = (sid == self.current_session_id)
             
-            btn_sesi = QPushButton(f"💬  {judul}")
-            btn_sesi.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_sesi.setFixedHeight(36)
-            btn_sesi.setStyleSheet(self._history_btn_style(is_active=(sid == self.current_session_id)))
+            item_widget = HistoryItemWidget(sid, judul, is_active)
+            item_widget.clicked.connect(self.pindah_sesi)
+            item_widget.refresh_needed.connect(self.muat_daftar_sidebar)
+            item_widget.refresh_needed.connect(self.muat_konten_chat_ke_layar)
             
-            # Trik Python Lambda scope: ikat s_id=sid agar tidak bentrok saat diclick
-            btn_sesi.clicked.connect(lambda checked, s_id=sid: self.pindah_sesi(s_id))
-            self.sidebar_chat_layout.addWidget(btn_sesi)
+            self.sidebar_chat_layout.addWidget(item_widget)
             
         self.sidebar_chat_layout.addStretch()
 
     def pindah_sesi(self, session_id):
-        """Fungsi ketika salah satu chat di sidebar diklik Ian."""
         if self._thinking: 
             return 
             
@@ -127,22 +208,30 @@ class NeiraDashboard(QMainWindow):
         self.muat_konten_chat_ke_layar() 
 
     def muat_konten_chat_ke_layar(self):
-        """Membersihkan layar utama dan memuat ulang history bubble chat dari sesi aktif."""
-        # Bersihkan bubble chat di layar lama terlebih dahulu
-        while self.chat_layout.count() > 1:
-            item = self.chat_layout.takeAt(0)
-            sub_layout = item.layout()
-            if sub_layout is not None:
-                while sub_layout.count():
-                    sub_item = sub_layout.takeAt(0)
-                    widget = sub_item.widget()
+        """Membersihkan layar utama dengan aman dan memuat ulang history bubble chat dari sesi aktif."""
+        # 1. CARA AMAN BERSIHKAN LAYOUT (Mencegah Crash/Segmentation Fault)
+        if hasattr(self, 'chat_layout') and self.chat_layout is not None:
+            while self.chat_layout.count() > 1:
+                item = self.chat_layout.takeAt(0)
+                if item is not None:
+                    # Jika berupa sub-layout (seperti baris chat user/neira)
+                    sub_layout = item.layout()
+                    if sub_layout is not None:
+                        while sub_layout.count():
+                            sub_item = sub_layout.takeAt(0)
+                            if sub_item and sub_item.widget():
+                                w = sub_item.widget()
+                                w.setParent(None)
+                                w.deleteLater()
+                        sub_layout.deleteLater()
+                    
+                    # Jika berupa widget langsung
+                    widget = item.widget()
                     if widget is not None:
+                        widget.setParent(None)
                         widget.deleteLater()
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
         
-        # Ambil riwayat chat khusus session_id ini dari database
+        # 2. AMBIL DATA DARI DATABASE
         riwayat = db.ambil_riwayat_terakhir(self.current_session_id, limit=20)
         
         if riwayat:
@@ -159,9 +248,12 @@ class NeiraDashboard(QMainWindow):
         else:
             self._has_chatted = False
             self.stack.setCurrentIndex(0) # Kembali ke Welcome Page jika kosong
+            
+        # Pemicu refresh layout agar render ulang berjalan mulus
+        self.chat_container.adjustSize()
+        QTimer.singleShot(50, self._scroll_to_bottom)
 
     def append_chat_bubble_manual(self, sender, text, is_user):
-        """Helper untuk me-render bubble chat statis saat memuat history."""
         row = QHBoxLayout()
         row.setContentsMargins(0, 5, 12, 5)
         
@@ -188,7 +280,6 @@ class NeiraDashboard(QMainWindow):
             row.addWidget(icon)
             row.addWidget(widget, stretch=1)
             
-            # Atur tinggi widget pas pas-an sesuai isi teks
             QTimer.singleShot(10, lambda: widget.setFixedHeight(int(widget.document().size().height()) + 10))
             
         self.chat_layout.insertLayout(self.chat_layout.count() - 1, row)
@@ -246,7 +337,7 @@ class NeiraDashboard(QMainWindow):
         self.new_chat_btn.setFixedHeight(36)
         self.new_chat_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.new_chat_btn.setStyleSheet(self._sidebar_btn_style())
-        self.new_chat_btn.clicked.connect(self.aksi_tombol_new_chat) # Diarahkan ke fungsi multi-session asli
+        self.new_chat_btn.clicked.connect(self.aksi_tombol_new_chat)
         v.addWidget(self.new_chat_btn)
 
         self.search_btn = QPushButton("🔍")
@@ -263,7 +354,6 @@ class NeiraDashboard(QMainWindow):
         self.search_input.setVisible(False)
         v.addWidget(self.search_input)
 
-        # FIX BUG LAYOUT: Inisialisasi layout sidebar chat penampung tombol SQLite asli
         self.sidebar_chat_layout = QVBoxLayout()
         self.sidebar_chat_layout.setSpacing(4)
         self.sidebar_chat_layout.setContentsMargins(0, 4, 0, 0)
@@ -287,17 +377,13 @@ class NeiraDashboard(QMainWindow):
         return sidebar
 
     def aksi_tombol_new_chat(self):
-        """Membuat sesi obrolan baru yang fresh dan polosan."""
         if self._thinking: 
             return
         
         id_baru = db.buat_sesi_baru("Chat Baru")
         self.current_session_id = id_baru
         
-        # Sembunyikan sidebar kembali biar fokus ngetik
         self._set_sidebar(False)
-        
-        # Refresh UI tampilan
         self.muat_daftar_sidebar()
         self.muat_konten_chat_ke_layar()
         
@@ -309,26 +395,6 @@ class NeiraDashboard(QMainWindow):
 
     def _sidebar_btn_style(self):
         return f"QPushButton {{ background-color: transparent; border: none; border-radius: 8px; font-size: 13px; color: {TEXT_PRIMARY}; text-align: left; padding-left: 6px; }} QPushButton:hover {{ background-color: {BG_SURFACE_2}; }}"
-
-    def _history_btn_style(self, is_active=False):
-        """Style tombol riwayat chat di sidebar, dengan efek hover senada tombol menu lain."""
-        if is_active:
-            return f"""
-                QPushButton {{
-                    text-align: left; padding-left: 12px;
-                    background: {BG_SURFACE_2}; color: {TEXT_PRIMARY};
-                    border: none; font-weight: bold; border-radius: 8px;
-                }}
-                QPushButton:hover {{ background: #3c3d40; }}
-            """
-        return f"""
-            QPushButton {{
-                text-align: left; padding-left: 12px;
-                background: transparent; color: {TEXT_MUTED};
-                border: none; border-radius: 8px;
-            }}
-            QPushButton:hover {{ background: {BG_SURFACE_2}; color: {TEXT_PRIMARY}; }}
-        """
 
     def _apply_sidebar_style(self, expanded):
         if expanded:
@@ -586,7 +652,6 @@ class NeiraDashboard(QMainWindow):
         if not text:
             return
 
-        # Ambil judul otomatis dari 5 kata pertama teks user untuk update nama sesi di SQLite jika masih berstatus "Chat Baru"
         riwayat_saat_ini = db.ambil_riwayat_terakhir(self.current_session_id, limit=2)
         if not riwayat_saat_ini:
             potongan_judul = " ".join(text.split()[:5])
@@ -638,11 +703,10 @@ class NeiraDashboard(QMainWindow):
         self.typing_timer.start()
         self.anim_timer.start()
 
-        # FIX BUG WORKER ARGUMEN: Masukkan callback neira, input teks, dan session_id aktif
         self.worker = NeiraWorker(self.processor_callback, text, self.current_session_id)
         self.worker.token_received.connect(self._on_token_received)
         self.worker.finished.connect(self._on_worker_finished)
-        self.worker.finished.connect(self.muat_daftar_sidebar) # Judul sidebar otomatis ke-refresh begitu AI kelar ngomong
+        self.worker.finished.connect(self.muat_daftar_sidebar) 
         self.worker.start()
         
         QTimer.singleShot(50, self._scroll_to_bottom)
