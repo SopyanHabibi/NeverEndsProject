@@ -35,7 +35,7 @@ TOOLS_SCHEMA = [
         'type': 'function',
         'function': {
             'name': 'buka_aplikasi',
-            'description': "Open/launch a desktop app or website for Ian (VS Code, Chrome, Spotify, YouTube, etc). Call this when Ian wants to open/launch/run something, or implies an activity tied to an app (e.g. 'I wanna code something' -> open VS Code).",
+            'description': "Open/launch an app or website (VS Code, Chrome, Spotify, YouTube, etc).",
             'parameters': {
                 'type': 'object',
                 'properties': {'nama_aplikasi': {'type': 'string', 'description': "App name, e.g. 'vscode', 'chrome', 'spotify'."}},
@@ -47,7 +47,7 @@ TOOLS_SCHEMA = [
         'type': 'function',
         'function': {
             'name': 'tambah_tugas',
-            'description': "Add a new task/to-do for Ian. Call when Ian wants to add/remember a task.",
+            'description': "Add a new task/to-do for Ian.",
             'parameters': {
                 'type': 'object',
                 'properties': {
@@ -62,7 +62,7 @@ TOOLS_SCHEMA = [
         'type': 'function',
         'function': {
             'name': 'lihat_tugas',
-            'description': "Show Ian's pending tasks/to-do list.",
+            'description': "Show Ian's pending tasks.",
             'parameters': {'type': 'object', 'properties': {}}
         }
     },
@@ -70,7 +70,7 @@ TOOLS_SCHEMA = [
         'type': 'function',
         'function': {
             'name': 'selesaikan_tugas',
-            'description': "Mark a task as done by its numeric ID.",
+            'description': "Mark a task done by ID.",
             'parameters': {
                 'type': 'object',
                 'properties': {'id_tugas': {'type': 'integer', 'description': 'Task ID.'}},
@@ -81,8 +81,24 @@ TOOLS_SCHEMA = [
     {
         'type': 'function',
         'function': {
+            'name': 'update_tugas',
+            'description': "Update the deadline or description of an EXISTING task by its ID. Use this — NOT tambah_tugas — when Ian gives more detail (like a deadline) about a task already mentioned earlier in the conversation.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'id_tugas': {'type': 'integer', 'description': 'ID of the existing task to update.'},
+                    'deadline': {'type': 'string', 'description': 'New deadline, free text. Optional.'},
+                    'deskripsi': {'type': 'string', 'description': 'New description. Optional.'}
+                },
+                'required': ['id_tugas']
+            }
+        }
+    },
+    {
+        'type': 'function',
+        'function': {
             'name': 'tambah_jadwal',
-            'description': "Add an event to Ian's daily schedule. Call when Ian wants to schedule/plan an activity at a specific time.",
+            'description': "Add an event to Ian's schedule with a time.",
             'parameters': {
                 'type': 'object',
                 'properties': {
@@ -97,7 +113,7 @@ TOOLS_SCHEMA = [
         'type': 'function',
         'function': {
             'name': 'lihat_jadwal',
-            'description': "Show Ian's daily schedule/agenda.",
+            'description': "Show Ian's schedule.",
             'parameters': {'type': 'object', 'properties': {}}
         }
     },
@@ -120,6 +136,7 @@ FUNCTION_MAP = {
     "tambah_tugas": lambda a: f"Got it, added task #{db.tambah_tugas(a.get('deskripsi',''), a.get('deadline'))}: '{a.get('deskripsi','')}'.",
     "lihat_tugas": lambda a: _format_tugas(db.ambil_tugas()),
     "selesaikan_tugas": lambda a: ("Done, marked complete!" if db.selesaikan_tugas(int(a.get("id_tugas", -1))) else "Couldn't find that task ID."),
+    "update_tugas": lambda a: ("Task updated!" if db.update_tugas(int(a.get("id_tugas", -1)), a.get("deskripsi"), a.get("deadline")) else "Couldn't find that task ID to update."),
     "tambah_jadwal": lambda a: (db.tambah_jadwal(a.get('aktivitas',''), a.get('waktu','')), f"Scheduled: '{a.get('aktivitas','')}' at {a.get('waktu','')}.")[1],
     "lihat_jadwal": lambda a: _format_jadwal(db.ambil_jadwal()),
 }
@@ -166,6 +183,23 @@ def perlu_akses_internet(teks: str) -> bool:
         "apple", "2025", "2026", "vs", "who is", "what is happening"
     ]
     return any(kata in teks.lower() for kata in kata_kunci)
+
+def perlu_tool_check(teks: str) -> bool:
+    """Mengecek longgar apakah kalimat user berpotensi butuh tool (app/task/jadwal),
+    biar tools schema cuma dikirim ke Qwen kalau emang relevan -> hemat token & lebih cepat."""
+    teks_lower = teks.lower()
+    kata_kunci = [
+        # buka aplikasi
+        "open", "launch", "run", "start", "buka", "jalankan",
+        "code", "coding", "vscode", "vs code", "chrome", "browser",
+        "spotify", "youtube", "github", "gmail", "notepad", "calculator",
+        "explorer", "terminal", "cmd",
+        # tasks
+        "task", "tugas", "todo", "to-do", "to do",
+        # jadwal
+        "schedule", "jadwal", "agenda", "deadline", "remind", "ingatkan",
+    ]
+    return any(kata in teks_lower for kata in kata_kunci)
 
 # ==================== HELPER ====================
 def _ambil_angka(teks: str) -> Optional[int]:
@@ -231,13 +265,26 @@ def proses_perintah_backend(perintah, session_id):
             riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=20)
             messages_payload.extend(riwayat_chat_sqlite)
             
-            # Panggil Ollama dengan dukungan Tool/Function Calling
-            response = ollama.chat(
-                model='qwen2.5:7b-instruct-q4_K_M',
-                messages=messages_payload,
-                tools=TOOLS_SCHEMA,
-                stream=True
-            )
+            # Panggil Ollama — tools cuma dikirim kalau kalimat user ada indikasi relevan
+            kwargs_ollama = {
+                'model': 'qwen2.5:7b-instruct-q4_K_M',
+                'messages': messages_payload,
+                'stream': True
+            }
+            if perlu_tool_check(perintah):
+                kwargs_ollama['tools'] = TOOLS_SCHEMA
+                # Override system message biar Qwen WAJIB pakai tool, gak boleh ngarang data
+                messages_payload[0]['content'] += (
+                    " IMPORTANT: For ANY question about Ian's tasks, schedule, or opening an app, "
+                    "you MUST call the matching tool. NEVER invent, guess, or fabricate data yourself — "
+                    "only report what the tool actually returns. "
+                    "If Ian gives extra detail (like a deadline or correction) about a task he already "
+                    "mentioned earlier in this conversation, call update_tugas on that existing task's ID "
+                    "instead of creating a duplicate with tambah_tugas."
+                )
+                kwargs_ollama['options'] = {'temperature': 0.1}
+
+            response = ollama.chat(**kwargs_ollama)
 
             tool_calls_terdeteksi = None
             respons_lengkap_neira = ""
@@ -254,18 +301,26 @@ def proses_perintah_backend(perintah, session_id):
 
             # Kalau Qwen mutusin manggil sebuah fitur (tool)
             if tool_calls_terdeteksi:
-                messages_payload.append({'role': 'assistant', 'content': '', 'tool_calls': tool_calls_terdeteksi})
-
+                hasil_tools = []
                 for panggilan in tool_calls_terdeteksi:
                     nama_fungsi = panggilan['function']['name']
                     args_fungsi = panggilan['function'].get('arguments', {})
                     fungsi = FUNCTION_MAP.get(nama_fungsi)
                     hasil_eksekusi = fungsi(args_fungsi) if fungsi else f"Unknown tool: {nama_fungsi}"
-                    messages_payload.append({'role': 'tool', 'content': str(hasil_eksekusi)})
+                    hasil_tools.append(str(hasil_eksekusi))
+
+                # Payload ringkas khusus buat narasi-in hasil tool, TANPA bawa ulang seluruh riwayat chat
+                payload_ringkas = [
+                    {'role': 'system', 'content': dynamic_system_prompt},
+                    {'role': 'user', 'content': perintah},
+                    {'role': 'assistant', 'content': '', 'tool_calls': tool_calls_terdeteksi},
+                ]
+                for hasil in hasil_tools:
+                    payload_ringkas.append({'role': 'tool', 'content': hasil})
 
                 response_final = ollama.chat(
                     model='qwen2.5:7b-instruct-q4_K_M',
-                    messages=messages_payload,
+                    messages=payload_ringkas,
                     stream=True
                 )
                 for chunk in response_final:

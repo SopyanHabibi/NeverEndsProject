@@ -2,9 +2,12 @@ ENGINE BARU NEIRA SIAP DIGEBER!!!
 
 LESGOO!!!
 
-GANTI UI ATAU TAMBAH FITUR, TERSERAH MANA DULU
+================================================================
+Apa Aja Fitur Yang Ada Pada Neira?
 
-TUGAS SEBELUM LANJUT!!
-
-1. ganti semua output dari perintah native. print -> yield
-   contoh: print("blablaba) -> yield "blablabla"
+well, selayaknya AI pada umumnya, tapi ini lebih dipersonalisasi
+Neira punya beberapa fitur personal, kayak:
+- Computer Control
+- Tasks & Schedule Control
+and the most important
+- She Knew Me

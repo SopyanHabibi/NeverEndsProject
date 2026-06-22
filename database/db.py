@@ -209,6 +209,26 @@ def selesaikan_tugas(id_tugas: int) -> bool:
         conn.close()
     return berhasil
 
+def update_tugas(id_tugas: int, deskripsi: str = None, deadline: str = None) -> bool:
+    """Mengupdate deskripsi dan/atau deadline tugas yang sudah ada, tanpa membuat entry baru."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    berhasil = False
+    try:
+        if deskripsi is not None and deadline is not None:
+            cursor.execute("UPDATE tugas SET deskripsi = ?, deadline = ? WHERE id = ?", (deskripsi, deadline, id_tugas))
+        elif deadline is not None:
+            cursor.execute("UPDATE tugas SET deadline = ? WHERE id = ?", (deadline, id_tugas))
+        elif deskripsi is not None:
+            cursor.execute("UPDATE tugas SET deskripsi = ? WHERE id = ?", (deskripsi, id_tugas))
+        berhasil = cursor.rowcount > 0
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal update tugas: {e}")
+    finally:
+        conn.close()
+    return berhasil
+
 def hapus_tugas(id_tugas: int) -> bool:
     """Menghapus tugas permanen berdasarkan ID."""
     conn = sqlite3.connect(DB_FILE)
