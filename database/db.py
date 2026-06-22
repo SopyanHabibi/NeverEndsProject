@@ -38,6 +38,27 @@ def inisialisasi_db():
         )
     ''')
     
+    # 4. TABEL BARU: Tasks/To-do list
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tugas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deskripsi TEXT NOT NULL,
+            deadline TEXT,
+            status TEXT DEFAULT 'pending',
+            dibuat_pada DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # 5. TABEL BARU: Jadwal harian
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS jadwal (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            aktivitas TEXT NOT NULL,
+            waktu TEXT NOT NULL,
+            dibuat_pada DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -148,3 +169,93 @@ def ambil_riwayat_terakhir(session_id: int, limit=20) -> list:
     baris = cursor.fetchall()
     conn.close()
     return [{"role": r, "content": c} for r, c in baris]
+
+# ==================== FITUR TASKS / TO-DO ====================
+
+def tambah_tugas(deskripsi: str, deadline: str = None) -> int:
+    """Menambahkan tugas baru, mengembalikan ID tugas yang baru dibuat."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO tugas (deskripsi, deadline) VALUES (?, ?)", (deskripsi, deadline))
+    id_baru = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return id_baru
+
+def ambil_tugas(hanya_pending: bool = True) -> list:
+    """Mengambil daftar tugas. Default cuma yang statusnya 'pending'."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    if hanya_pending:
+        cursor.execute("SELECT id, deskripsi, deadline FROM tugas WHERE status = 'pending' ORDER BY id")
+    else:
+        cursor.execute("SELECT id, deskripsi, deadline, status FROM tugas ORDER BY id")
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"id": b[0], "deskripsi": b[1], "deadline": b[2]} for b in baris]
+
+def selesaikan_tugas(id_tugas: int) -> bool:
+    """Menandai tugas selesai berdasarkan ID. Return True kalau berhasil."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    berhasil = False
+    try:
+        cursor.execute("UPDATE tugas SET status = 'done' WHERE id = ?", (id_tugas))
+        berhasil = cursor.rowcount > 0
+        conn.commit()
+    except Exception as e:
+        yield f"Gagal menyelesaikan tugas: {e}"
+    finally:
+        conn.close()
+    return berhasil
+
+def hapus_tugas(id_tugas: int) -> bool:
+    """Menghapus tugas permanen berdasarkan ID."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    berhasil = False
+    try:
+        cursor.execute("DELETE FROM tugas WHERE id = ?", (id_tugas))
+        berhasil = cursor.rowcount > 0
+        conn.commit()
+    except Exception as e:
+        yield f"Gagal menghapus tugas: {e}"
+    finally:
+        conn.close()
+    return berhasil
+
+# ==================== FITUR JADWAL HARIAN ====================
+
+def tambah_jadwal(aktivitas: str, waktu: str) -> int:
+    """Menambahkan item jadwal baru, mengembalikan ID-nya."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO jadwal (aktivitas, waktu) VALUES (?, ?)", (aktivitas, waktu))
+    id_baru = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return id_baru
+
+def ambil_jadwal() -> list:
+    """Mengambil seluruh item jadwal."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, aktivitas, waktu FROM jadwal ORDER BY id")
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"id": b[0], "aktivitas": b[1], "waktu": b[2]} for b in baris]
+
+def hapus_jadwal(id_jadwal: int) -> bool:
+    """Menghapus item jadwal berdasarkan ID."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    berhasil = False
+    try:
+        cursor.execute("DELETE FROM jadwal WHERE id = ?", (id_jadwal,))
+        berhasil = cursor.rowcount > 0
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal menghapus jadwal: {e}")
+    finally:
+        conn.close()
+    return berhasil

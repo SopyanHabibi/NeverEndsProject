@@ -5,7 +5,10 @@ import webbrowser
 import ollama
 import wikipediaapi
 import threading
+import subprocess
 from typing import Optional
+from fitur import sistem
+from tools import tools_neira
 
 # Kita kunci path absolut agar db_neira selalu sinkron di satu tempat
 DIR_NEIRA = os.path.dirname(os.path.abspath(__file__))
@@ -24,6 +27,102 @@ system_prompt = (
     "response to give Ian the most accurate, up-to-date information for 2026. Always keep your "
     "answers punchy, natural, and highly efficient. Always address him as 'Ian'."
 )
+
+# ==================== TOOLS / FUNCTION CALLING ====================
+
+TOOLS_SCHEMA = [
+    {
+        'type': 'function',
+        'function': {
+            'name': 'buka_aplikasi',
+            'description': "Open/launch a desktop app or website for Ian (VS Code, Chrome, Spotify, YouTube, etc). Call this when Ian wants to open/launch/run something, or implies an activity tied to an app (e.g. 'I wanna code something' -> open VS Code).",
+            'parameters': {
+                'type': 'object',
+                'properties': {'nama_aplikasi': {'type': 'string', 'description': "App name, e.g. 'vscode', 'chrome', 'spotify'."}},
+                'required': ['nama_aplikasi']
+            }
+        }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'tambah_tugas',
+            'description': "Add a new task/to-do for Ian. Call when Ian wants to add/remember a task.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'deskripsi': {'type': 'string', 'description': 'Task description.'},
+                    'deadline': {'type': 'string', 'description': "Optional deadline, free text. Empty if unmentioned."}
+                },
+                'required': ['deskripsi']
+            }
+        }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'lihat_tugas',
+            'description': "Show Ian's pending tasks/to-do list.",
+            'parameters': {'type': 'object', 'properties': {}}
+        }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'selesaikan_tugas',
+            'description': "Mark a task as done by its numeric ID.",
+            'parameters': {
+                'type': 'object',
+                'properties': {'id_tugas': {'type': 'integer', 'description': 'Task ID.'}},
+                'required': ['id_tugas']
+            }
+        }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'tambah_jadwal',
+            'description': "Add an event to Ian's daily schedule. Call when Ian wants to schedule/plan an activity at a specific time.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'aktivitas': {'type': 'string', 'description': 'Activity description.'},
+                    'waktu': {'type': 'string', 'description': "Time/date, free text e.g. 'today 3pm', '2026-06-23 14:00'."}
+                },
+                'required': ['aktivitas', 'waktu']
+            }
+        }
+    },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'lihat_jadwal',
+            'description': "Show Ian's daily schedule/agenda.",
+            'parameters': {'type': 'object', 'properties': {}}
+        }
+    },
+]
+
+def _format_tugas(daftar):
+    if not daftar:
+        return "No pending tasks, Ian. You're all clear!"
+    baris = [f"#{t['id']} - {t['deskripsi']}" + (f" (deadline: {t['deadline']})" if t['deadline'] else "") for t in daftar]
+    return "Here's your task list:\n" + "\n".join(baris)
+
+def _format_jadwal(daftar):
+    if not daftar:
+        return "Your schedule's empty, Ian."
+    baris = [f"{j['waktu']} - {j['aktivitas']}" for j in daftar]
+    return "Here's your schedule:\n" + "\n".join(baris)
+
+FUNCTION_MAP = {
+    "buka_aplikasi": lambda a: tools_neira.buka_aplikasi(a.get("nama_aplikasi", "")),
+    "tambah_tugas": lambda a: f"Got it, added task #{db.tambah_tugas(a.get('deskripsi',''), a.get('deadline'))}: '{a.get('deskripsi','')}'.",
+    "lihat_tugas": lambda a: _format_tugas(db.ambil_tugas()),
+    "selesaikan_tugas": lambda a: ("Done, marked complete!" if db.selesaikan_tugas(int(a.get("id_tugas", -1))) else "Couldn't find that task ID."),
+    "tambah_jadwal": lambda a: (db.tambah_jadwal(a.get('aktivitas',''), a.get('waktu','')), f"Scheduled: '{a.get('aktivitas','')}' at {a.get('waktu','')}.")[1],
+    "lihat_jadwal": lambda a: _format_jadwal(db.ambil_jadwal()),
+}
 
 # ==================== FITUR BROWSER HYBRID ====================
 
@@ -101,11 +200,6 @@ def proses_perintah_backend(perintah, session_id):
             yield f"It's currently {waktu_sekarang}, Ian."
             return
 
-        elif "open google" in perintah:
-            yield "Alright, opening Google for you..."
-            webbrowser.open("https://www.google.com")
-            return
-
         elif "open youtube" in perintah:
             yield "Sure thing, spinning up YouTube..."
             webbrowser.open("https://www.youtube.com")
@@ -137,18 +231,47 @@ def proses_perintah_backend(perintah, session_id):
             riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=20)
             messages_payload.extend(riwayat_chat_sqlite)
             
-            # Panggil Ollama
+            # Panggil Ollama dengan dukungan Tool/Function Calling
             response = ollama.chat(
                 model='qwen2.5:7b-instruct-q4_K_M',
                 messages=messages_payload,
+                tools=TOOLS_SCHEMA,
                 stream=True
             )
-            
+
+            tool_calls_terdeteksi = None
             respons_lengkap_neira = ""
+
             for chunk in response:
-                token = chunk['message']['content']
-                respons_lengkap_neira += token
-                yield token
+                pesan = chunk['message']
+                if pesan.get('tool_calls'):
+                    tool_calls_terdeteksi = pesan['tool_calls']
+                    break
+                token = pesan.get('content', '')
+                if token:
+                    respons_lengkap_neira += token
+                    yield token
+
+            # Kalau Qwen mutusin manggil sebuah fitur (tool)
+            if tool_calls_terdeteksi:
+                messages_payload.append({'role': 'assistant', 'content': '', 'tool_calls': tool_calls_terdeteksi})
+
+                for panggilan in tool_calls_terdeteksi:
+                    nama_fungsi = panggilan['function']['name']
+                    args_fungsi = panggilan['function'].get('arguments', {})
+                    fungsi = FUNCTION_MAP.get(nama_fungsi)
+                    hasil_eksekusi = fungsi(args_fungsi) if fungsi else f"Unknown tool: {nama_fungsi}"
+                    messages_payload.append({'role': 'tool', 'content': str(hasil_eksekusi)})
+
+                response_final = ollama.chat(
+                    model='qwen2.5:7b-instruct-q4_K_M',
+                    messages=messages_payload,
+                    stream=True
+                )
+                for chunk in response_final:
+                    token = chunk['message']['content']
+                    respons_lengkap_neira += token
+                    yield token
                 
             # Simpan balasan asisten ke db session terkait
             db.simpan_chat(session_id, "assistant", respons_lengkap_neira)

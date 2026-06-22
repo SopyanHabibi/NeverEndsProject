@@ -33,6 +33,10 @@ Bagaimana Neira Mengatur Memorinya?
      "Lanjutin yang kemarin", Neira bakal nyambung dan langsung jawab detail lanjutannya.
 
 
-2.7jt kk tasya
-1.1jt bg wahyu
-300rb mamak
+KONSEP ARSITEKTUR "COMPUTER CONTROL" BEKERJA
+
+1. Saat user mengetikkan "open vs code please" atau "i wanna code something"
+2. AI membaca input -> melihat ada tool cocok bernama buka_aplikasi(nama_app="visual studio code")
+3. AI mengembalikan respon berupa struktur data JSON
+4. Neira menangkap instruksi JSON tersebut -> Mengeksekusi fungsi Pyhton yang sesuai
+5. Lalu mengembalikan hasilnya ke layar atau dilempar balik ke AI jika butuh konfirmasi
