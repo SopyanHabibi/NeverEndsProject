@@ -1,0 +1,58 @@
+Ringkasan Konsep: Activity & Productivity Tracking di Neira
+
+1. Masalah yang mau diselesaikan
+Neira mau bisa ngerti pola kebiasaan Ian (misal: jam berapa biasa mulai/berhenti ngoding), terus bandingin pola hari ini vs rata-rata historis, buat ngasih insight kayak "produktivitas turun X%".
+
+2. Kenapa gak bisa cuma andelin tool buka_aplikasi
+Tool itu cuma ke-trigger kalau Ian nyuruh Neira buka app ("Neira, buka VS Code"). Tapi biasanya Ian buka app langsung manual dari taskbar, gak lewat Neira. Kalau cuma andelin tool itu, datanya bolong-bolong dan gak representatif buat pola asli.
+
+Solusi: butuh "radar" independen yang ngecek sendiri, gak peduli dibuka lewat Neira atau manual.
+
+3. Komponen-komponen utama
+┌─────────────────────────────────────────────────────┐
+│  monitor.py (Background Watcher)                     │
+│  - Jalan di THREAD TERPISAH, gak ganggu UI/chat       │
+│  - Tiap 5 menit: cek psutil.process_iter()            │
+│    ("siapa aja yang lagi jalan di Task Manager?")     │
+│  - Bandingin sama status sebelumnya:                  │
+│    • App baru muncul -> catat "mulai" ke DB           │
+│    • App yang tadinya ada, sekarang hilang -> catat   │
+│      "selesai" ke DB                                  │
+└─────────────────────────────────────────────────────┘
+                        ↓ nulis/baca
+┌─────────────────────────────────────────────────────┐
+│  db.py (tabel aktivitas_log)                          │
+│  id | nama_aplikasi | waktu_mulai | waktu_selesai     │
+│  Tiap baris = 1 "sesi" pemakaian app                  │
+│  waktu_selesai = NULL artinya sesi masih berlangsung  │
+└─────────────────────────────────────────────────────┘
+                        ↓ dibaca pas ditanya
+┌─────────────────────────────────────────────────────┐
+│  neira.py (analisa_produktivitas)                     │
+│  - Tool baru yang dipanggil Qwen kalau Ian nanya       │
+│    soal produktivitas/pola                            │
+│  - Ambil riwayat 14 hari terakhir dari DB              │
+│  - Hitung rata-rata: jam mulai & durasi per hari        │
+│  - Bandingin hari ini vs rata-rata itu                 │
+│  - Hasilnya dikasih ke Qwen buat dinarasiin natural    │
+└─────────────────────────────────────────────────────┘
+
+4. Alur konkretnya (timeline)
+    1. 09:00 — Ian buka VS Code manual.
+    2. 09:05 — monitor.py ngecek proses (siklus 5 menit), nemu Code.exe jalan, gak ada di _sesi_aktif → catat "mulai" ke aktivitas_log (waktu_mulai = sekarang, waktu_selesai = NULL).
+    3. Ian ngoding terus... monitor tetap ngecek tiap 5 menit, tapi karena Code.exe masih ada di _sesi_aktif, gak ngapa-ngapain (sesi tetap "berjalan").
+    4. 11:30 — Ian nutup VS Code.
+    5. 11:35 — Monitor ngecek lagi, Code.exe udah gak ada di daftar proses → catat "selesai" (update waktu_selesai = sekarang).
+    6. Sekarang ada 1 baris lengkap: VS Code | 09:00 | 11:30 → durasi 2.5 jam.
+    7. Ini berulang tiap hari, ngumpulin banyak baris historis.
+    8. Kapanpun Ian nanya "gimana produktivitas ngoding aku hari ini?" → Neira hitung rata-rata dari semua baris lama, bandingin sama baris hari ini, kasih persentase.
+
+5. Kenapa butuh closeEvent
+Kalau Ian nutup Neira pas VS Code masih kebuka, sesi yang tadi dicatat "mulai" itu gak akan pernah dicatat "selesai" secara natural (karena monitor-nya juga ikut mati pas Neira ditutup). Tanpa penanganan khusus, baris itu nyangkut selamanya dengan waktu_selesai = NULL — ngerusak hitungan rata-rata ke depannya.
+Fix: pas window Neira ditutup (klik X), sebelum app beneran exit, paksa tutup semua sesi yang masih NULL itu (anggap aja "selesai sekarang"). Bukan akurat 100%, tapi mencegah data jadi rusak permanen.
+
+6. Kenapa minimal butuh 3 hari data dulu
+Kalau cuma ada 1-2 data point, "rata-rata" itu gak representatif (bisa kebetulan). Makanya ada syarat minimal 3 sesi historis sebelum Neira berani ngasih analisa — biar gak asal nebak dari sampel kecil.
+
+Intinya dalam satu kalimat: 
+monitor.py jadi "mata" yang terus mengintai proses Windows tanpa diminta, nyatet ke database tiap kali sebuah app mulai/berhenti jalan, dan nanti data itu dipakai buat hitung rata-rata historis vs aktivitas hari ini.

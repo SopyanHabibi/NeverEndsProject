@@ -171,6 +171,13 @@ class NeiraDashboard(QMainWindow):
         # 4. SOLUSI ESTETIKA: Paksa layar utama balik ke Welcome Page saat aplikasi baru dibuka
         self._has_chatted = False
         self.stack.setCurrentIndex(0) 
+        
+    def closeEvent(self, event):
+        """Dipanggil otomatis Qt pas window ditutup (klik X). Pastikan sesi aktivitas
+        yang masih terbuka (misal app yang lagi dimonitor) ditutup rapi di database,
+        biar gak ada data 'menggantung' yang ngerusak analisa pola besok."""
+        db.tutup_semua_sesi_aktif()
+        event.accept()
 
     def muat_daftar_sidebar(self):
         """Membaca data sesi dari SQLite dan merendernya menggunakan Custom Hover Widget."""

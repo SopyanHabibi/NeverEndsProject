@@ -8,7 +8,7 @@ import threading
 import subprocess
 from typing import Optional
 from fitur import sistem
-from tools import tools_neira
+from tools import tools_neira, monitor
 
 # Kita kunci path absolut agar db_neira selalu sinkron di satu tempat
 DIR_NEIRA = os.path.dirname(os.path.abspath(__file__))
@@ -117,6 +117,20 @@ TOOLS_SCHEMA = [
             'parameters': {'type': 'object', 'properties': {}}
         }
     },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'analisa_produktivitas',
+            'description': "Analyze Ian's usage pattern for an app (e.g. VS Code) — compares today's activity to his historical average to detect productivity changes.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'nama_aplikasi': {'type': 'string', 'description': "App name, e.g. 'VS Code', 'Chrome'."}
+                },
+                'required': ['nama_aplikasi']
+            }
+        }
+    },
 ]
 
 def _format_tugas(daftar):
@@ -131,6 +145,54 @@ def _format_jadwal(daftar):
     baris = [f"{j['waktu']} - {j['aktivitas']}" for j in daftar]
     return "Here's your schedule:\n" + "\n".join(baris)
 
+def _analisa_pola(nama_aplikasi: str) -> str:
+    """Hitung rata-rata jam mulai & durasi historis, bandingin sama hari ini."""
+    import datetime
+    riwayat = db.ambil_riwayat_aktivitas(nama_aplikasi, hari=14)
+
+    if len(riwayat) < 3:
+        return f"Not enough history yet for {nama_aplikasi} to spot a pattern, Ian. Keep using it and ask me again in a few days!"
+
+    hari_ini = datetime.date.today().isoformat()
+    sesi_hari_ini = [r for r in riwayat if r['mulai'].startswith(hari_ini)]
+    sesi_historis = [r for r in riwayat if not r['mulai'].startswith(hari_ini)]
+
+    def hitung_durasi_menit(sesi):
+        total = 0
+        for s in sesi:
+            mulai = datetime.datetime.fromisoformat(s['mulai'])
+            selesai = datetime.datetime.fromisoformat(s['selesai'])
+            total += (selesai - mulai).total_seconds() / 60
+        return total
+
+    def rata_jam_mulai(sesi):
+        jam_list = [datetime.datetime.fromisoformat(s['mulai']).hour + datetime.datetime.fromisoformat(s['mulai']).minute / 60 for s in sesi]
+        return sum(jam_list) / len(jam_list) if jam_list else None
+
+    if not sesi_historis:
+        return f"Today's your first tracked day with {nama_aplikasi}, Ian. Check back tomorrow for a real comparison!"
+
+    durasi_historis_per_hari = hitung_durasi_menit(sesi_historis) / max(1, len(set(s['mulai'][:10] for s in sesi_historis)))
+    durasi_hari_ini = hitung_durasi_menit(sesi_hari_ini)
+    jam_mulai_historis = rata_jam_mulai(sesi_historis)
+    jam_mulai_hari_ini = rata_jam_mulai(sesi_hari_ini)
+
+    persen_perubahan = ((durasi_hari_ini - durasi_historis_per_hari) / durasi_historis_per_hari * 100) if durasi_historis_per_hari > 0 else 0
+
+    hasil = (
+        f"Historical average for {nama_aplikasi}: starts around {jam_mulai_historis:.1f}h, "
+        f"~{durasi_historis_per_hari:.0f} min/day. "
+    )
+    if sesi_hari_ini:
+        hasil += (
+            f"Today: started around {jam_mulai_hari_ini:.1f}h, {durasi_hari_ini:.0f} min so far. "
+            f"That's {abs(persen_perubahan):.0f}% {'lower' if persen_perubahan < 0 else 'higher'} than usual."
+        )
+    else:
+        hasil += f"No {nama_aplikasi} activity detected yet today."
+
+    return hasil
+
 FUNCTION_MAP = {
     "buka_aplikasi": lambda a: tools_neira.buka_aplikasi(a.get("nama_aplikasi", "")),
     "tambah_tugas": lambda a: f"Got it, added task #{db.tambah_tugas(a.get('deskripsi',''), a.get('deadline'))}: '{a.get('deskripsi','')}'.",
@@ -139,6 +201,14 @@ FUNCTION_MAP = {
     "update_tugas": lambda a: ("Task updated!" if db.update_tugas(int(a.get("id_tugas", -1)), a.get("deskripsi"), a.get("deadline")) else "Couldn't find that task ID to update."),
     "tambah_jadwal": lambda a: (db.tambah_jadwal(a.get('aktivitas',''), a.get('waktu','')), f"Scheduled: '{a.get('aktivitas','')}' at {a.get('waktu','')}.")[1],
     "lihat_jadwal": lambda a: _format_jadwal(db.ambil_jadwal()),
+    "analisa_produktivitas": lambda a: _analisa_pola(a.get("nama_aplikasi", "")),
+}
+
+# Tools yang outputnya udah final & natural -> gak perlu dinarasiin ulang sama LLM (hemat 1x inference)
+TOOLS_INSTANT = {
+    "buka_aplikasi",
+    "selesaikan_tugas",
+    "update_tugas",
 }
 
 # ==================== FITUR BROWSER HYBRID ====================
@@ -229,7 +299,7 @@ def proses_perintah_backend(perintah, session_id):
             return
 
         # 3. JAM & SHORTCUT APLIKASI
-        elif "what time is it" in perintah or "check time" in perintah or "what time" in perintah:
+        elif "what time is it" in perintah or "check time" in perintah:
             waktu_sekarang = datetime.datetime.now().strftime("%I:%M %p")
             yield f"It's currently {waktu_sekarang}, Ian."
             return
@@ -302,6 +372,8 @@ def proses_perintah_backend(perintah, session_id):
             # Kalau Qwen mutusin manggil sebuah fitur (tool)
             if tool_calls_terdeteksi:
                 hasil_tools = []
+                semua_instant = True
+
                 for panggilan in tool_calls_terdeteksi:
                     nama_fungsi = panggilan['function']['name']
                     args_fungsi = panggilan['function'].get('arguments', {})
@@ -309,24 +381,33 @@ def proses_perintah_backend(perintah, session_id):
                     hasil_eksekusi = fungsi(args_fungsi) if fungsi else f"Unknown tool: {nama_fungsi}"
                     hasil_tools.append(str(hasil_eksekusi))
 
-                # Payload ringkas khusus buat narasi-in hasil tool, TANPA bawa ulang seluruh riwayat chat
-                payload_ringkas = [
-                    {'role': 'system', 'content': dynamic_system_prompt},
-                    {'role': 'user', 'content': perintah},
-                    {'role': 'assistant', 'content': '', 'tool_calls': tool_calls_terdeteksi},
-                ]
-                for hasil in hasil_tools:
-                    payload_ringkas.append({'role': 'tool', 'content': hasil})
+                    if nama_fungsi not in TOOLS_INSTANT:
+                        semua_instant = False
 
-                response_final = ollama.chat(
-                    model='qwen2.5:7b-instruct-q4_K_M',
-                    messages=payload_ringkas,
-                    stream=True
-                )
-                for chunk in response_final:
-                    token = chunk['message']['content']
-                    respons_lengkap_neira += token
-                    yield token
+                if semua_instant:
+                    # Output tool udah final & natural -> skip LLM kedua, langsung tampilin
+                    teks_gabungan = "\n".join(hasil_tools)
+                    respons_lengkap_neira += teks_gabungan
+                    yield teks_gabungan
+                else:
+                    # Payload ringkas khusus buat narasi-in hasil tool, TANPA bawa ulang seluruh riwayat chat
+                    payload_ringkas = [
+                        {'role': 'system', 'content': dynamic_system_prompt},
+                        {'role': 'user', 'content': perintah},
+                        {'role': 'assistant', 'content': '', 'tool_calls': tool_calls_terdeteksi},
+                    ]
+                    for hasil in hasil_tools:
+                        payload_ringkas.append({'role': 'tool', 'content': hasil})
+
+                    response_final = ollama.chat(
+                        model='qwen2.5:7b-instruct-q4_K_M',
+                        messages=payload_ringkas,
+                        stream=True
+                    )
+                    for chunk in response_final:
+                        token = chunk['message']['content']
+                        respons_lengkap_neira += token
+                        yield token
                 
             # Simpan balasan asisten ke db session terkait
             db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
@@ -382,5 +463,7 @@ def neira_auto_remember(perintah_user: str, jawaban_neira: str):
 
 if __name__ == "__main__":
     print("🚀 Triggering Neira with PyQt6 Engine... Let's Go!")
+    db.inisialisasi_db()
+    monitor.mulai_monitoring()
     import gui.pyqt_dashboard
     gui.pyqt_dashboard.main()

@@ -58,6 +58,16 @@ def inisialisasi_db():
             dibuat_pada DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # 6. TABEL BARU: Log aktivitas aplikasi (buat deteksi pola produktivitas)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS aktivitas_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nama_aplikasi TEXT NOT NULL,
+            waktu_mulai DATETIME NOT NULL,
+            waktu_selesai DATETIME
+        )
+    ''')
 
     conn.commit()
     conn.close()
@@ -279,3 +289,66 @@ def hapus_jadwal(id_jadwal: int) -> bool:
     finally:
         conn.close()
     return berhasil
+
+# ==================== FITUR MONITORING AKTIVITAS ====================
+
+def mulai_sesi_aktivitas(nama_aplikasi: str) -> int:
+    """Mencatat aplikasi mulai terdeteksi jalan. Dipanggil sama background monitor."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO aktivitas_log (nama_aplikasi, waktu_mulai) VALUES (?, CURRENT_TIMESTAMP)",
+        (nama_aplikasi,)
+    )
+    id_baru = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return id_baru
+
+def selesaikan_sesi_aktivitas(nama_aplikasi: str):
+    """Menutup sesi aktivitas terbuka terakhir untuk aplikasi tertentu (waktu_selesai diisi sekarang)."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            UPDATE aktivitas_log
+            SET waktu_selesai = CURRENT_TIMESTAMP
+            WHERE id = (
+                SELECT id FROM aktivitas_log
+                WHERE nama_aplikasi = ? AND waktu_selesai IS NULL
+                ORDER BY id DESC LIMIT 1
+            )
+        ''', (nama_aplikasi,))
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal menutup sesi aktivitas: {e}")
+    finally:
+        conn.close()
+
+def tutup_semua_sesi_aktif():
+    """Menutup SEMUA sesi yang masih kebuka (waktu_selesai NULL). Dipanggil pas Neira ditutup,
+    biar gak ada sesi 'menggantung' selamanya kalau app dimatiin paksa."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE aktivitas_log SET waktu_selesai = CURRENT_TIMESTAMP WHERE waktu_selesai IS NULL")
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal menutup sesi aktif: {e}")
+    finally:
+        conn.close()
+
+def ambil_riwayat_aktivitas(nama_aplikasi: str, hari: int = 14) -> list:
+    """Ambil riwayat sesi (mulai, selesai) untuk sebuah app dalam N hari terakhir, sesi yang udah selesai aja."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT waktu_mulai, waktu_selesai FROM aktivitas_log
+        WHERE nama_aplikasi = ?
+          AND waktu_selesai IS NOT NULL
+          AND waktu_mulai >= datetime('now', ?)
+        ORDER BY waktu_mulai ASC
+    ''', (nama_aplikasi, f'-{hari} days'))
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"mulai": b[0], "selesai": b[1]} for b in baris]

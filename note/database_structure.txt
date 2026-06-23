@@ -40,3 +40,5 @@ KONSEP ARSITEKTUR "COMPUTER CONTROL" BEKERJA
 3. AI mengembalikan respon berupa struktur data JSON
 4. Neira menangkap instruksi JSON tersebut -> Mengeksekusi fungsi Pyhton yang sesuai
 5. Lalu mengembalikan hasilnya ke layar atau dilempar balik ke AI jika butuh konfirmasi
+
+
