@@ -27,7 +27,7 @@ def _ambil_proses_yang_jalan() -> set:
     nama_terdeteksi = set()
     for proc in psutil.process_iter(['name']):
         try:
-            nama_proses = proc.info['nama']
+            nama_proses = proc.info['name']
             if nama_proses:
                 nama_lower = nama_proses.lower()
                 if nama_lower in PETA_PROSES:
@@ -63,8 +63,29 @@ def _loop_monitoring():
             print(f"[MONITOR ERROR] {e}")
         time.sleep(INTERVAL_DETIK)
 
+def _sinkronisasi_saat_mulai():
+    """Dipanggil sekali pas Neira start. Cek sesi 'menggantung' dari sesi sebelumnya (biasanya akibat
+    restart paksa tanpa closeEvent yang bersih). Kalau app-nya MASIH jalan, lanjutin sesi itu (jangan
+    bikin baris baru). Kalau app-nya udah gak jalan, tutup sesi lama itu pakai waktu sekarang."""
+    sesi_menggantung = db.ambil_sesi_terbuka()
+    if not sesi_menggantung:
+        return
+
+    jalan_sekarang = _ambil_proses_yang_jalan()
+    for sesi in sesi_menggantung:
+        app = sesi["nama_aplikasi"]
+        if app in jalan_sekarang:
+            # App masih jalan -> anggap sesi ini lanjutan, jangan bikin duplikat baru
+            _sesi_aktif[app] = True
+            print(f"[MONITOR] Melanjutkan sesi {app} yang masih berjalan dari sebelumnya.")
+        else:
+            # App udah gak jalan -> tutup sesi lama yang kelupaan ditutup
+            db.tutup_sesi_by_id(sesi["id"])
+            print(f"[MONITOR] Menutup sesi {app} yang menggantung dari sesi sebelumnya.")
+
 def mulai_monitoring():
     """Jalankan background monitor di thread terpisah, daemon biar otomatis mati pas app ditutup."""
+    _sinkronisasi_saat_mulai()
     thread = threading.Thread(target=_loop_monitoring, daemon=True)
     thread.start()
     print("[MONITOR] Activity monitoring started, checking every 5 minutes.")

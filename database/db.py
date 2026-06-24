@@ -352,3 +352,20 @@ def ambil_riwayat_aktivitas(nama_aplikasi: str, hari: int = 14) -> list:
     baris = cursor.fetchall()
     conn.close()
     return [{"mulai": b[0], "selesai": b[1]} for b in baris]
+
+def ambil_sesi_terbuka() -> list:
+    """Ambil semua sesi yang masih 'menggantung' (waktu_selesai NULL) — biasanya sisa dari restart sebelumnya."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nama_aplikasi FROM aktivitas_log WHERE waktu_selesai IS NULL")
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"id": b[0], "nama_aplikasi": b[1]} for b in baris]
+
+def tutup_sesi_by_id(id_sesi: int):
+    """Tutup 1 sesi spesifik berdasarkan ID-nya."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE aktivitas_log SET waktu_selesai = CURRENT_TIMESTAMP WHERE id = ?", (id_sesi,))
+    conn.commit()
+    conn.close()

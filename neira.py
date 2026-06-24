@@ -209,6 +209,8 @@ TOOLS_INSTANT = {
     "buka_aplikasi",
     "selesaikan_tugas",
     "update_tugas",
+    "lihat_tugas",   # Disamakan dengan nama fungsi di TOOLS_SCHEMA
+    "lihat_jadwal"   # Disamakan dengan nama fungsi di TOOLS_SCHEMA
 }
 
 # ==================== FITUR BROWSER HYBRID ====================
@@ -263,11 +265,11 @@ def perlu_tool_check(teks: str) -> bool:
         "open", "launch", "run", "start", "buka", "jalankan",
         "code", "coding", "vscode", "vs code", "chrome", "browser",
         "spotify", "youtube", "github", "gmail", "notepad", "calculator",
-        "explorer", "terminal", "cmd",
+        "explorer", "terminal", "cmd", "app", "application", "program",
         # tasks
-        "task", "tugas", "todo", "to-do", "to do",
+        "task", "tugas", "todo", "to-do", "to do", "list", "kerjaan", "pekerjaan",
         # jadwal
-        "schedule", "jadwal", "agenda", "deadline", "remind", "ingatkan",
+        "schedule", "jadwal", "agenda", "deadline", "remind", "ingatkan", "hari ini", "today", "calendar"
     ]
     return any(kata in teks_lower for kata in kata_kunci)
 
@@ -311,7 +313,7 @@ def proses_perintah_backend(perintah, session_id):
 
         # 4. JALUR UTAMA LLM + DYNAMIC MULTI-SESSION CONTEXT
         else:
-            # FIX BUG 1: Langsung simpan chat user sekarang juga ke dalam session_id aktif
+            # Langsung simpan chat user sekarang juga ke dalam session_id aktif
             db.simpan_chat(session_id, "user", perintah)
             
             # Ambil memori profil jangka panjang (Profil Ian)
@@ -331,7 +333,7 @@ def proses_perintah_backend(perintah, session_id):
                 yield f"💡 *[Live Web Info]* Found some updates! Let me process this for you...\n\n"
                 messages_payload.append({'role': 'user', 'content': f"Here is the real-time web data for your reference:\n{data_internet}"})
             
-            # FIX BUG 2: Hanya ambil 20 chat terakhir khusus dari session_id yang aktif!
+            # Hanya ambil 20 chat terakhir khusus dari session_id yang aktif!
             riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=20)
             messages_payload.extend(riwayat_chat_sqlite)
             
@@ -343,33 +345,55 @@ def proses_perintah_backend(perintah, session_id):
             }
             if perlu_tool_check(perintah):
                 kwargs_ollama['tools'] = TOOLS_SCHEMA
-                # Override system message biar Qwen WAJIB pakai tool, gak boleh ngarang data
                 messages_payload[0]['content'] += (
-                    " IMPORTANT: For ANY question about Ian's tasks, schedule, or opening an app, "
-                    "you MUST call the matching tool. NEVER invent, guess, or fabricate data yourself — "
-                    "only report what the tool actually returns. "
-                    "If Ian gives extra detail (like a deadline or correction) about a task he already "
-                    "mentioned earlier in this conversation, call update_tugas on that existing task's ID "
-                    "instead of creating a duplicate with tambah_tugas."
+                    " IMPORTANT: If Ian asks about his tasks, schedule, or opening an app, "
+                    "you MUST use the corresponding tool. Do NOT print raw JSON or code blocks in your chat response. "
+                    "Just execute the tool call."
                 )
-                kwargs_ollama['options'] = {'temperature': 0.1}
-
+                kwargs_ollama['options'] = {'temperature': 0.1, 'num_predict': 300}
             response = ollama.chat(**kwargs_ollama)
 
             tool_calls_terdeteksi = None
-            respons_lengkap_neira = ""
+        respons_lengkap_neira = ""
 
-            for chunk in response:
-                pesan = chunk['message']
-                if pesan.get('tool_calls'):
-                    tool_calls_terdeteksi = pesan['tool_calls']
-                    break
-                token = pesan.get('content', '')
-                if token:
-                    respons_lengkap_neira += token
-                    yield token
+        for chunk in response:
+            # 1. Cek apakah Ollama mendeteksi ini sebagai Tool Calls secara native
+            if 'message' in chunk and 'tool_calls' in chunk['message'] and chunk['message']['tool_calls']:
+                tool_calls_terdeteksi = chunk['message']['tool_calls']
+                continue # Langsung skip, jangan di-yield ke UI PyQt6
+            
+            # 2. Ambil potongan teks token
+            token = chunk.get('message', {}).get('content', '')
+            respons_lengkap_neira += token
+            
+            # PERBAIKAN NYATA: Cegah kebocoran teks JSON mentah ke layar UI
+            # Jika teks yang sedang digenerate mengandung struktur skema JSON, tahan dan jangan kirim ke UI
+            if respons_lengkap_neira.strip().startswith("{") or "tool_calls" in respons_lengkap_neira:
+                continue # Tahan token, jangan di-yield karena ini adalah proses pemanggilan fungsi
+                
+            if token:
+                yield token
 
-            # Kalau Qwen mutusin manggil sebuah fitur (tool)
+            # ==================== FORCE FALLBACK INTERCEPTOR ====================
+            # Jika Qwen gagal memicu native tool_calls tapi malah menulis teks JSON fiktif di chat bubble (seperti di gambar)
+            if not tool_calls_terdeteksi and "```json" in respons_lengkap_neira or '"tugas":' in respons_lengkap_neira:
+                perintah_lower = perintah.lower()
+                # Intersept manual berdasarkan kemauan user
+                if "task" in perintah_lower or "tugas" in perintah_lower or "todo" in perintah_lower:
+                    yield "\n\n🤖 *[Neira Auto-Sync]* Syncing directly with SQLite..."
+                    # Jalankan fungsi asli dari database
+                    hasil_db = FUNCTION_MAP["lihat_tugas"]({})
+                    yield f"\n\n{hasil_db}"
+                    db.simpan_chat(session_id, "assistant", hasil_db)
+                    return
+                elif "schedule" in perintah_lower or "jadwal" in perintah_lower or "agenda" in perintah_lower:
+                    yield "\n\n🤖 *[Neira Auto-Sync]* Syncing directly with SQLite..."
+                    hasil_db = FUNCTION_MAP["lihat_jadwal"]({})
+                    yield f"\n\n{hasil_db}"
+                    db.simpan_chat(session_id, "assistant", hasil_db)
+                    return
+
+            # Kalau Qwen sukses manggil sebuah fitur (tool) lewat jalur normal native
             if tool_calls_terdeteksi:
                 hasil_tools = []
                 semua_instant = True
@@ -385,12 +409,10 @@ def proses_perintah_backend(perintah, session_id):
                         semua_instant = False
 
                 if semua_instant:
-                    # Output tool udah final & natural -> skip LLM kedua, langsung tampilin
                     teks_gabungan = "\n".join(hasil_tools)
                     respons_lengkap_neira += teks_gabungan
                     yield teks_gabungan
                 else:
-                    # Payload ringkas khusus buat narasi-in hasil tool, TANPA bawa ulang seluruh riwayat chat
                     payload_ringkas = [
                         {'role': 'system', 'content': dynamic_system_prompt},
                         {'role': 'user', 'content': perintah},
@@ -402,7 +424,8 @@ def proses_perintah_backend(perintah, session_id):
                     response_final = ollama.chat(
                         model='qwen2.5:7b-instruct-q4_K_M',
                         messages=payload_ringkas,
-                        stream=True
+                        stream=True,
+                        options={'num_predict': 300}
                     )
                     for chunk in response_final:
                         token = chunk['message']['content']
@@ -412,7 +435,7 @@ def proses_perintah_backend(perintah, session_id):
             # Simpan balasan asisten ke db session terkait
             db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
             
-            # FIX BUG 3: Jalankan auto remember di Thread terpisah agar UI gak "Processing" kelamaan
+            # Jalankan auto remember di Thread terpisah agar UI gak "Processing" kelamaan
             threading.Thread(
                 target=neira_auto_remember, 
                 args=(perintah, respons_lengkap_neira), 

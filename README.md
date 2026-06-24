@@ -11,3 +11,8 @@ Neira punya beberapa fitur personal, kayak:
 - Tasks & Schedule Control
 and the most important
 - She Knew Me
+
+
+NEED TO FIX :
+- Bug monitoring
+- Fix respone speed
