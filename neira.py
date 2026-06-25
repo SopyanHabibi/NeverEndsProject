@@ -1,4 +1,5 @@
 import datetime
+import time
 import sys
 import os
 import webbrowser
@@ -7,7 +8,7 @@ import wikipediaapi
 import threading
 import subprocess
 from typing import Optional
-from fitur import sistem
+from fitur import sistem, profil
 from tools import tools_neira, monitor
 
 # Kita kunci path absolut agar db_neira selalu sinkron di satu tempat
@@ -282,6 +283,7 @@ def _ambil_angka(teks: str) -> Optional[int]:
 # ==================== CORE UTAMA BACKEND NEIRA ====================
 def proses_perintah_backend(perintah, session_id):
     """Sistem Backend Neira dengan dukungan penuh Session-ID database."""
+    waktu_mulai = time.time()
     try:
         # Inisialisasi database di awal
         db.inisialisasi_db()
@@ -313,12 +315,13 @@ def proses_perintah_backend(perintah, session_id):
 
         # 4. JALUR UTAMA LLM + DYNAMIC MULTI-SESSION CONTEXT
         else:
+            
             # Langsung simpan chat user sekarang juga ke dalam session_id aktif
             db.simpan_chat(session_id, "user", perintah)
             
             # Ambil memori profil jangka panjang (Profil Ian)
             data_profil_ian = db.ambil_semua_profil()
-            str_konteks_profil = ", ".join([f"{k}: {v}" for k, v in data_profil_ian.items()])
+            str_konteks_profil = ", ".join([f"{k}: {v}" for k, v in list(data_profil_ian.items())[:10]])
             
             dynamic_system_prompt = system_prompt
             if str_konteks_profil:
@@ -334,7 +337,7 @@ def proses_perintah_backend(perintah, session_id):
                 messages_payload.append({'role': 'user', 'content': f"Here is the real-time web data for your reference:\n{data_internet}"})
             
             # Hanya ambil 20 chat terakhir khusus dari session_id yang aktif!
-            riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=20)
+            riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=8)
             messages_payload.extend(riwayat_chat_sqlite)
             
             # Panggil Ollama — tools cuma dikirim kalau kalimat user ada indikasi relevan
@@ -354,34 +357,32 @@ def proses_perintah_backend(perintah, session_id):
             response = ollama.chat(**kwargs_ollama)
 
             tool_calls_terdeteksi = None
-        respons_lengkap_neira = ""
+            respons_lengkap_neira = ""
 
-        for chunk in response:
-            # 1. Cek apakah Ollama mendeteksi ini sebagai Tool Calls secara native
-            if 'message' in chunk and 'tool_calls' in chunk['message'] and chunk['message']['tool_calls']:
-                tool_calls_terdeteksi = chunk['message']['tool_calls']
-                continue # Langsung skip, jangan di-yield ke UI PyQt6
-            
-            # 2. Ambil potongan teks token
-            token = chunk.get('message', {}).get('content', '')
-            respons_lengkap_neira += token
-            
-            # PERBAIKAN NYATA: Cegah kebocoran teks JSON mentah ke layar UI
-            # Jika teks yang sedang digenerate mengandung struktur skema JSON, tahan dan jangan kirim ke UI
-            if respons_lengkap_neira.strip().startswith("{") or "tool_calls" in respons_lengkap_neira:
-                continue # Tahan token, jangan di-yield karena ini adalah proses pemanggilan fungsi
-                
-            if token:
-                yield token
+            for chunk in response:
+                # 1. Cek apakah Ollama mendeteksi ini sebagai Tool Calls secara native
+                if 'message' in chunk and 'tool_calls' in chunk['message'] and chunk['message']['tool_calls']:
+                    tool_calls_terdeteksi = chunk['message']['tool_calls']
+                    continue
 
-            # ==================== FORCE FALLBACK INTERCEPTOR ====================
-            # Jika Qwen gagal memicu native tool_calls tapi malah menulis teks JSON fiktif di chat bubble (seperti di gambar)
-            if not tool_calls_terdeteksi and "```json" in respons_lengkap_neira or '"tugas":' in respons_lengkap_neira:
+                # 2. Ambil potongan teks token
+                token = chunk.get('message', {}).get('content', '')
+                respons_lengkap_neira += token
+
+                # Cegah kebocoran teks JSON mentah ke layar UI
+                if respons_lengkap_neira.strip().startswith("{") or "tool_calls" in respons_lengkap_neira:
+                    continue
+
+                if token:
+                    yield token
+
+            # ==================== SETELAH STREAMING SELESAI ====================
+
+            # FORCE FALLBACK INTERCEPTOR — Qwen gagal manggil tool native, tapi nulis JSON mentah di teks
+            if not tool_calls_terdeteksi and ("```json" in respons_lengkap_neira or '"tugas":' in respons_lengkap_neira):
                 perintah_lower = perintah.lower()
-                # Intersept manual berdasarkan kemauan user
                 if "task" in perintah_lower or "tugas" in perintah_lower or "todo" in perintah_lower:
                     yield "\n\n🤖 *[Neira Auto-Sync]* Syncing directly with SQLite..."
-                    # Jalankan fungsi asli dari database
                     hasil_db = FUNCTION_MAP["lihat_tugas"]({})
                     yield f"\n\n{hasil_db}"
                     db.simpan_chat(session_id, "assistant", hasil_db)
@@ -393,7 +394,7 @@ def proses_perintah_backend(perintah, session_id):
                     db.simpan_chat(session_id, "assistant", hasil_db)
                     return
 
-            # Kalau Qwen sukses manggil sebuah fitur (tool) lewat jalur normal native
+            # Kalau Qwen sukses manggil tool lewat jalur native
             if tool_calls_terdeteksi:
                 hasil_tools = []
                 semua_instant = True
@@ -431,14 +432,14 @@ def proses_perintah_backend(perintah, session_id):
                         token = chunk['message']['content']
                         respons_lengkap_neira += token
                         yield token
-                
-            # Simpan balasan asisten ke db session terkait
+
+            # Ini SEKARANG jalan SEKALI doang per respons, bukan per token
+            print(f"[TIMING] Total durasi: {time.time() - waktu_mulai:.2f} detik | tool_dipakai={perlu_tool_check(perintah)}")
             db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
-            
-            # Jalankan auto remember di Thread terpisah agar UI gak "Processing" kelamaan
+
             threading.Thread(
-                target=neira_auto_remember, 
-                args=(perintah, respons_lengkap_neira), 
+                target=neira_auto_remember,
+                args=(perintah, respons_lengkap_neira),
                 daemon=True
             ).start()
 
@@ -449,14 +450,22 @@ def neira_auto_remember(perintah_user: str, jawaban_neira: str):
     """Menyuruh Qwen mendeteksi informasi penting secara otomatis untuk disimpan ke SQLite."""
     import json
     try:
+        profil_sekarang = db.ambil_semua_profil()
+
         prompt_memori = (
             f"Analyze this conversation turn between Ian and you.\n"
             f"Ian said: '{perintah_user}'\n"
             f"You replied: '{jawaban_neira}'\n\n"
-            f"CRITICAL: If Ian shared a new personal fact about himself (e.g., his name, age, current project, girlfriend, location, hobby, or bike), "
-            f"extract it into a flat JSON object where keys are the specific topics (use underscores for spaces) and values are the facts. "
-            f"Example output if Ian says 'I live in Medan': {{\"lokasi\": \"Medan\"}}\n"
-            f"If NO new personal information was shared by Ian, strictly reply with an empty object: {{}}\n"
+            f"Ian's CURRENT saved profile: {json.dumps(profil_sekarang)}\n\n"
+            f"CRITICAL RULES:\n"
+            f"1. ONLY use these EXACT keys, never invent new ones: name, age, location, occupation, "
+            f"motorcycle, hobbies, current_project, relationship_status, hardware_specs.\n"
+            f"2. If Ian shares info matching one of these keys, output that key with the UPDATED value "
+            f"(overwrite, don't create a variant key).\n"
+            f"3. If Ian shares something that doesn't fit any key above, IGNORE it — do not invent a new key.\n"
+            f"4. If a key already has a value in his current profile and nothing new was said about it, "
+            f"do NOT include it in your output.\n"
+            f"5. If NO new personal information was shared, strictly reply with an empty object: {{}}\n"
             f"Output ONLY the valid raw JSON object, no extra text, no markdown block."
         )
         
