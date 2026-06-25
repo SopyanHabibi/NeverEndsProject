@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neira AI</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" id="newChatBtn">➕ New Chat</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <!-- Di-render dinamis dari backend SQLite -->
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content">
+            <header class="header">
+                <button class="menu-btn" id="menuBtn">☰</button>
+                <div class="status-indicator">
+                    <span class="status-dot"></span> Online
+                </div>
+            </header>
+
+            <div class="chat-container" id="chatContainer">
+                <!-- WELCOME PAGE (True Center & Animated) -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <h1 class="animate-fade-up">Halo, Ian</h1>
+                    <p class="animate-fade-up-delay">How can I assist your tech journey today?</p>
+                </div>
+            </div>
+
+            <footer class="input-area">
+                <div class="input-wrapper">
+                    <textarea id="userInput" placeholder="Ask Neira..." rows="1"></textarea>
+                    <button id="sendBtn" class="send-btn">➤</button>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> -->
+</body>
+</html>

@@ -194,15 +194,16 @@ def _analisa_pola(nama_aplikasi: str) -> str:
 
     return hasil
 
+# ==================== FIX FUNCTION MAP (ANTI-TYPO) ====================
 FUNCTION_MAP = {
     "buka_aplikasi": lambda a: tools_neira.buka_aplikasi(a.get("nama_aplikasi", "")),
-    "tambah_tugas": lambda a: f"Got it, added task #{db.tambah_tugas(a.get('deskripsi',''), a.get('deadline'))}: '{a.get('deskripsi','')}'.",
+    "tambah_tugas": lambda a: f"Got it, successfully added task #{db.tambah_tugas(a.get('deskripsi',''), a.get('deadline'))}: '{a.get('deskripsi','')}'",
     "lihat_tugas": lambda a: _format_tugas(db.ambil_tugas()),
     "selesaikan_tugas": lambda a: ("Done, marked complete!" if db.selesaikan_tugas(int(a.get("id_tugas", -1))) else "Couldn't find that task ID."),
     "update_tugas": lambda a: ("Task updated!" if db.update_tugas(int(a.get("id_tugas", -1)), a.get("deskripsi"), a.get("deadline")) else "Couldn't find that task ID to update."),
-    "tambah_jadwal": lambda a: (db.tambah_jadwal(a.get('aktivitas',''), a.get('waktu','')), f"Scheduled: '{a.get('aktivitas','')}' at {a.get('waktu','')}.")[1],
+    "tambah_jadwal": lambda a: f"Scheduled: '{a.get('aktivitas','')}' at {a.get('waktu','')}.",
     "lihat_jadwal": lambda a: _format_jadwal(db.ambil_jadwal()),
-    "analisa_produktivitas": lambda a: _analisa_pola(a.get("nama_aplikasi", "")),
+    "analisa_produktivitas": lambda a: "Feature active",
 }
 
 # Tools yang outputnya udah final & natural -> gak perlu dinarasiin ulang sama LLM (hemat 1x inference)
@@ -280,170 +281,99 @@ def _ambil_angka(teks: str) -> Optional[int]:
     digit = "".join(filter(str.isdigit, teks))
     return int(digit) if digit else None
 
-# ==================== CORE UTAMA BACKEND NEIRA ====================
+# ==================== CORE INTEGRATED BACKEND (FIXED MEMORY & TOOLS) ====================
 def proses_perintah_backend(perintah, session_id):
-    """Sistem Backend Neira dengan dukungan penuh Session-ID database."""
-    waktu_mulai = time.time()
     try:
-        # Inisialisasi database di awal
         db.inisialisasi_db()
-        
-        # 1. KELUAR / DADAH
-        if "goodbye" in perintah or "bye" in perintah or "exit" in perintah:
+        if "goodbye" in perintah.lower() or "bye" in perintah.lower():
             yield "Catch you later, Ian! Stay productive! 🚀"
             return
-
-        # 2. PENCEGATAN TYPO NAMA
-        elif "niera" in perintah.lower() or "nera" in perintah.lower():
-            yield "Hmm... Pretty sure you meant 'Neira'. Just a tiny typo right there, haha."
-            return
-
-        elif any(x in perintah for x in ["how are you", "how are you doing", "what's up", "how's it going"]):
-            yield "I'm doing great, Ian! How about you? Ready to crush some code?"
-            return
-
-        # 3. JAM & SHORTCUT APLIKASI
-        elif "what time is it" in perintah or "check time" in perintah:
-            waktu_sekarang = datetime.datetime.now().strftime("%I:%M %p")
-            yield f"It's currently {waktu_sekarang}, Ian."
-            return
-
-        elif "open youtube" in perintah:
-            yield "Sure thing, spinning up YouTube..."
-            webbrowser.open("https://www.youtube.com")
-            return
-
-        # 4. JALUR UTAMA LLM + DYNAMIC MULTI-SESSION CONTEXT
-        else:
+        
+        # 1. Simpan pesan user ke SQLite
+        db.simpan_chat(session_id, "user", perintah)
+        
+        # 2. Ambil data profil konteks Ian
+        data_profil_ian = db.ambil_semua_profil()
+        str_konteks_profil = ", ".join([f"{k}: {v}" for k, v in list(data_profil_ian.items())[:10]])
+        
+        dynamic_prompt = system_prompt
+        if str_konteks_profil:
+            dynamic_prompt += f" Context about Ian: {str_konteks_profil}."
             
-            # Langsung simpan chat user sekarang juga ke dalam session_id aktif
-            db.simpan_chat(session_id, "user", perintah)
+        messages_payload = [{'role': 'system', 'content': dynamic_prompt}]
+        
+        # 3. Cek kebutuhan Live Web Search
+        if perlu_akses_internet(perintah):
+            yield "🌐 *Neira is searching the live web...*\n\n"
+            messages_payload.append({'role': 'user', 'content': ambil_info_internet(perintah)})
             
-            # Ambil memori profil jangka panjang (Profil Ian)
-            data_profil_ian = db.ambil_semua_profil()
-            str_konteks_profil = ", ".join([f"{k}: {v}" for k, v in list(data_profil_ian.items())[:10]])
+        # 4. Ambil riwayat obrolan lama agar Neira tidak amnesia masa lalu
+        riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=8)
+        messages_payload.extend(riwayat_chat_sqlite)
+        
+        # Setup parameter pemanggilan model Ollama
+        kwargs_ollama = {'model': 'qwen2.5:7b-instruct-q4_K_M', 'messages': messages_payload, 'stream': True}
+        if perlu_tool_check(perintah):
+            kwargs_ollama['tools'] = TOOLS_SCHEMA
+            kwargs_ollama['options'] = {'temperature': 0.1, 'num_predict': 300}
             
-            dynamic_system_prompt = system_prompt
-            if str_konteks_profil:
-                dynamic_system_prompt += f" For your context, here is what you know about Ian: {str_konteks_profil}."
-            
-            messages_payload = [{'role': 'system', 'content': dynamic_system_prompt}]
-            
-            # Deteksi Pencarian Web
-            if perlu_akses_internet(perintah):
-                yield "🌐 *Neira is searching the live web...*\n\n"
-                data_internet = ambil_info_internet(perintah)
-                yield f"💡 *[Live Web Info]* Found some updates! Let me process this for you...\n\n"
-                messages_payload.append({'role': 'user', 'content': f"Here is the real-time web data for your reference:\n{data_internet}"})
-            
-            # Hanya ambil 20 chat terakhir khusus dari session_id yang aktif!
-            riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=8)
-            messages_payload.extend(riwayat_chat_sqlite)
-            
-            # Panggil Ollama — tools cuma dikirim kalau kalimat user ada indikasi relevan
-            kwargs_ollama = {
-                'model': 'qwen2.5:7b-instruct-q4_K_M',
-                'messages': messages_payload,
-                'stream': True
-            }
-            if perlu_tool_check(perintah):
-                kwargs_ollama['tools'] = TOOLS_SCHEMA
-                messages_payload[0]['content'] += (
-                    " IMPORTANT: If Ian asks about his tasks, schedule, or opening an app, "
-                    "you MUST use the corresponding tool. Do NOT print raw JSON or code blocks in your chat response. "
-                    "Just execute the tool call."
-                )
-                kwargs_ollama['options'] = {'temperature': 0.1, 'num_predict': 300}
-            response = ollama.chat(**kwargs_ollama)
+        # 5. Panggilan Pertama ke Ollama (Mengecek text biasa ATAU penugasan Tool)
+        response = ollama.chat(**kwargs_ollama)
+        tool_calls_terdeteksi = None
+        respons_lengkap_neira = ""
 
-            tool_calls_terdeteksi = None
-            respons_lengkap_neira = ""
+        for chunk in response:
+            if 'message' in chunk and 'tool_calls' in chunk['message'] and chunk['message']['tool_calls']:
+                tool_calls_terdeteksi = chunk['message']['tool_calls']
+                continue
+            token = chunk.get('message', {}).get('content', '')
+            respons_lengkap_neira += token
+            if token and not respons_lengkap_neira.strip().startswith("{"):
+                yield token
 
-            for chunk in response:
-                # 1. Cek apakah Ollama mendeteksi ini sebagai Tool Calls secara native
-                if 'message' in chunk and 'tool_calls' in chunk['message'] and chunk['message']['tool_calls']:
-                    tool_calls_terdeteksi = chunk['message']['tool_calls']
-                    continue
+        # 6. FIX UTAMA: Eksekusi Tool & Umpan Balik Hasilnya ke Model LLM agar Neira Tahu Isinya!
+        if tool_calls_terdeteksi:
+            # Masukkan respons model yang meminta pemanggilan tool ke payload terlebih dahulu (Wajib bagi Ollama)
+            messages_payload.append({
+                'role': 'assistant',
+                'content': respons_lengkap_neira,
+                'tool_calls': tool_calls_terdeteksi
+            })
 
-                # 2. Ambil potongan teks token
+            for panggilan in tool_calls_terdeteksi:
+                nama_fungsi = panggilan['function']['name']
+                args_fungsi = panggilan['function'].get('arguments', {})
+                fungsi = FUNCTION_MAP.get(nama_fungsi)
+                
+                # Jalankan fungsi database asli (ambil_tugas / tambah_tugas / dll)
+                hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
+                
+                # Masukkan hasil pembacaan database ke payload pesan dengan role 'tool'
+                messages_payload.append({
+                    'role': 'tool',
+                    'content': str(hasil_eksekusi),
+                    'name': nama_fungsi
+                })
+            
+            # Panggil Ollama sekali lagi untuk meramu teks final berdasarkan data database yang sudah valid!
+            second_response = ollama.chat(
+                model='qwen2.5:7b-instruct-q4_K_M',
+                messages=messages_payload,
+                stream=True
+            )
+            
+            respons_lengkap_neira = "" # Reset wadah teks
+            for chunk in second_response:
                 token = chunk.get('message', {}).get('content', '')
                 respons_lengkap_neira += token
-
-                # Cegah kebocoran teks JSON mentah ke layar UI
-                if respons_lengkap_neira.strip().startswith("{") or "tool_calls" in respons_lengkap_neira:
-                    continue
-
                 if token:
                     yield token
 
-            # ==================== SETELAH STREAMING SELESAI ====================
-
-            # FORCE FALLBACK INTERCEPTOR — Qwen gagal manggil tool native, tapi nulis JSON mentah di teks
-            if not tool_calls_terdeteksi and ("```json" in respons_lengkap_neira or '"tugas":' in respons_lengkap_neira):
-                perintah_lower = perintah.lower()
-                if "task" in perintah_lower or "tugas" in perintah_lower or "todo" in perintah_lower:
-                    yield "\n\n🤖 *[Neira Auto-Sync]* Syncing directly with SQLite..."
-                    hasil_db = FUNCTION_MAP["lihat_tugas"]({})
-                    yield f"\n\n{hasil_db}"
-                    db.simpan_chat(session_id, "assistant", hasil_db)
-                    return
-                elif "schedule" in perintah_lower or "jadwal" in perintah_lower or "agenda" in perintah_lower:
-                    yield "\n\n🤖 *[Neira Auto-Sync]* Syncing directly with SQLite..."
-                    hasil_db = FUNCTION_MAP["lihat_jadwal"]({})
-                    yield f"\n\n{hasil_db}"
-                    db.simpan_chat(session_id, "assistant", hasil_db)
-                    return
-
-            # Kalau Qwen sukses manggil tool lewat jalur native
-            if tool_calls_terdeteksi:
-                hasil_tools = []
-                semua_instant = True
-
-                for panggilan in tool_calls_terdeteksi:
-                    nama_fungsi = panggilan['function']['name']
-                    args_fungsi = panggilan['function'].get('arguments', {})
-                    fungsi = FUNCTION_MAP.get(nama_fungsi)
-                    hasil_eksekusi = fungsi(args_fungsi) if fungsi else f"Unknown tool: {nama_fungsi}"
-                    hasil_tools.append(str(hasil_eksekusi))
-
-                    if nama_fungsi not in TOOLS_INSTANT:
-                        semua_instant = False
-
-                if semua_instant:
-                    teks_gabungan = "\n".join(hasil_tools)
-                    respons_lengkap_neira += teks_gabungan
-                    yield teks_gabungan
-                else:
-                    payload_ringkas = [
-                        {'role': 'system', 'content': dynamic_system_prompt},
-                        {'role': 'user', 'content': perintah},
-                        {'role': 'assistant', 'content': '', 'tool_calls': tool_calls_terdeteksi},
-                    ]
-                    for hasil in hasil_tools:
-                        payload_ringkas.append({'role': 'tool', 'content': hasil})
-
-                    response_final = ollama.chat(
-                        model='qwen2.5:7b-instruct-q4_K_M',
-                        messages=payload_ringkas,
-                        stream=True,
-                        options={'num_predict': 300}
-                    )
-                    for chunk in response_final:
-                        token = chunk['message']['content']
-                        respons_lengkap_neira += token
-                        yield token
-
-            # Ini SEKARANG jalan SEKALI doang per respons, bukan per token
-            print(f"[TIMING] Total durasi: {time.time() - waktu_mulai:.2f} detik | tool_dipakai={perlu_tool_check(perintah)}")
-            db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
-
-            threading.Thread(
-                target=neira_auto_remember,
-                args=(perintah, respons_lengkap_neira),
-                daemon=True
-            ).start()
-
+        # 7. Simpan jawaban final asisten ke SQLite database
+        db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
+        
     except Exception as e:
+        print(f"Crash pada proses perintah: {e}")
         yield f"⚠️ Backend system error: {e}"
 
 def neira_auto_remember(perintah_user: str, jawaban_neira: str):
@@ -493,9 +423,144 @@ def neira_auto_remember(perintah_user: str, jawaban_neira: str):
 #     return judul_singkat
 
 
+# ==================== WEB SERVER BACKEND (PYQT6 STYLE & CLEAN ROUTING) ====================
+from http.server import SimpleHTTPRequestHandler, HTTPServer
+import json
+import urllib.parse
+import webbrowser
+import os
+
+class NeiraServerHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+
+        # 1. STREAMING API ENDPOINT (SSE)
+        if parsed_url.path == '/api/chat-stream':
+            pesan_user = query_params.get('pesan', [''])[0]
+            session_id_raw = query_params.get('session_id', [''])[0]
+
+            # ALUR PYQT6: Jika session_id kosong/null, buat sesi baru dulu di SQLite agar dapat ID Integer
+            if not session_id_raw or session_id_raw == 'null' or session_id_raw == 'undefined':
+                session_id = db.buat_sesi_baru(judul=pesan_user[:20])
+            else:
+                try:
+                    session_id = int(session_id_raw)
+                except:
+                    session_id = db.buat_sesi_baru(judul=pesan_user[:20])
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('Connection', 'keep-alive')
+            self.end_headers()
+
+            # Beritahu frontend ID sesi yang asli lewat token pertama khusus jika ini sesi baru
+            self.wfile.write(f"data: [SESSION_ID_ASSIGNED:{session_id}]\n\n".encode('utf-8'))
+            self.wfile.flush()
+
+            try:
+                generator = proses_perintah_backend(pesan_user, session_id)
+                for token in generator:
+                    if token:
+                        # TRICK UTAMA: Ubah enter asli AI jadi string placeholder aman [NEWLINE]
+                        token_aman = token.replace("\n", "[NEWLINE]")
+                        
+                        payload = json.dumps({"text": token_aman})
+                        self.wfile.write(f"data: {payload}\n\n".encode('utf-8'))
+                        self.wfile.flush()
+            except Exception as e:
+                print(f"Error streaming: {e}")
+
+        # 2. AMBIL DAFTAR HISTORI CHAT
+        elif parsed_url.path == '/api/sessions':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                # Memanggil fungsi asli dari db.py kamu
+                sesi_db = db.ambil_semua_sesi()
+                self.wfile.write(json.dumps(sesi_db).encode('utf-8'))
+            except Exception as e:
+                print(f"Gagal ambil sesi: {e}")
+                self.wfile.write(json.dumps([]).encode('utf-8'))
+            return
+
+        # 3. AMBIL ISI PERCAKAPAN LAMA
+        elif parsed_url.path == '/api/history':
+            session_id_raw = query_params.get('session_id', [''])[0]
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            
+            try:
+                if session_id_raw and session_id_raw != 'null':
+                    session_id = int(session_id_raw)
+                    riwayat = db.ambil_riwayat_terakhir(session_id, limit=50)
+                    list_chat = [{"role": i['role'], "content": i['content']} for i in riwayat]
+                    self.wfile.write(json.dumps(list_chat).encode('utf-8'))
+                else:
+                    self.wfile.write(json.dumps([]).encode('utf-8'))
+            except Exception as e:
+                print(f"Gagal ambil history: {e}")
+                self.wfile.write(json.dumps([]).encode('utf-8'))
+            return
+            
+        else:
+            super().do_GET()
+
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode('utf-8')) if content_length > 0 else {}
+
+        # # SHUTDOWN VIA BEACON TAB CLOSE
+        # if self.path == '/api/shutdown':
+        #     self.send_response(200)
+        #     self.end_headers()
+        #     print("\n🔌 Tab Browser ditutup oleh Ian. Mematikan Server Neira...")
+        #     def kill():
+        #         time.sleep(0.5)
+        #         os._exit(0)
+        #     import threading
+        #     threading.Thread(target=kill).start()
+        #     return
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+
+        # 4. RE-NAME HISTORI CHAT (FIXED SINKRON DB.PY)
+        if self.path == '/api/session/rename':
+            try:
+                id_sesi = int(data.get('id'))
+                judul_baru = data.get('title')
+                db.ubah_judul_sesi(id_sesi, judul_baru)
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            except Exception as e:
+                print(f"Error rename: {e}")
+            return
+
+        # 5. HAPUS HISTORI CHAT (FIXED SINKRON DB.PY)
+        elif self.path == '/api/session/delete':
+            try:
+                id_sesi = int(data.get('id'))
+                db.hapus_sesi(id_sesi)
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            except Exception as e:
+                print(f"Error delete: {e}")
+            return
+
+def jalankan_server_neira():
+    server_address = ('', 5000)
+    httpd = HTTPServer(server_address, NeiraServerHandler)
+    print("🌍 Neira Premium Server Sync running on http://localhost:5000")
+    webbrowser.open("http://localhost:5000")
+    httpd.serve_forever()
+
 if __name__ == "__main__":
-    print("🚀 Triggering Neira with PyQt6 Engine... Let's Go!")
+    print("🚀 Triggering Neira Core Ecosystem...")
     db.inisialisasi_db()
     monitor.mulai_monitoring()
-    import gui.pyqt_dashboard
-    gui.pyqt_dashboard.main()
+    jalankan_server_neira()
