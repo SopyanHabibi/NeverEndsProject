@@ -357,10 +357,10 @@ def ambil_sesi_terbuka() -> list:
     """Ambil semua sesi yang masih 'menggantung' (waktu_selesai NULL) — biasanya sisa dari restart sebelumnya."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, nama_aplikasi FROM aktivitas_log WHERE waktu_selesai IS NULL")
+    cursor.execute("SELECT id, nama_aplikasi, waktu_mulai FROM aktivitas_log WHERE waktu_selesai IS NULL")
     baris = cursor.fetchall()
     conn.close()
-    return [{"id": b[0], "nama_aplikasi": b[1]} for b in baris]
+    return [{"id": b[0], "nama_aplikasi": b[1], "waktu_mulai": b[2]} for b in baris]
 
 def tutup_sesi_by_id(id_sesi: int):
     """Tutup 1 sesi spesifik berdasarkan ID-nya."""

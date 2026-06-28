@@ -234,7 +234,7 @@ body {
     word-wrap: break-word;
 }
 
-.neira-icon {
+/* .neira-icon {
     background: var(--gradient-accent);
     width: 32px;
     height: 32px;
@@ -244,7 +244,7 @@ body {
     justify-content: center;
     font-size: 14px;
     flex-shrink: 0;
-}
+} */
 
 .neira-text {
     color: var(--text-primary);

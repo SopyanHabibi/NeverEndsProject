@@ -136,7 +136,7 @@ async function kirimPesan() {
     input.value = '';
     autoGrow(input);
 
-    const responseRow = appendBubble('<span class="thinking-dots">Thinking...</span>', false);
+    const responseRow = appendBubble('<span class="thinking-dots">...</span>', false);
     const textNode = responseRow.querySelector(".neira-text");
 
     const encText = encodeURIComponent(text);
@@ -210,7 +210,7 @@ function appendBubble(text, isUser) {
 
     row.innerHTML = isUser ? 
         `<div class="user-bubble">${processedText}</div>` : 
-        `<div class="neira-icon">✦</div><div class="neira-text">${processedText}</div>`;
+        `<div class="neira-text">${processedText}</div>`;
         
     container.appendChild(row);
     container.scrollTop = container.scrollHeight;

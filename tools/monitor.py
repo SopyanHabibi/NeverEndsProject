@@ -64,24 +64,34 @@ def _loop_monitoring():
         time.sleep(INTERVAL_DETIK)
 
 def _sinkronisasi_saat_mulai():
-    """Dipanggil sekali pas Neira start. Cek sesi 'menggantung' dari sesi sebelumnya (biasanya akibat
-    restart paksa tanpa closeEvent yang bersih). Kalau app-nya MASIH jalan, lanjutin sesi itu (jangan
-    bikin baris baru). Kalau app-nya udah gak jalan, tutup sesi lama itu pakai waktu sekarang."""
+    """Dipanggil sekali pas Neira start. Cek sesi 'menggantung' dari sesi sebelumnya."""
     sesi_menggantung = db.ambil_sesi_terbuka()
     if not sesi_menggantung:
         return
 
     jalan_sekarang = _ambil_proses_yang_jalan()
+    hari_ini_str = datetime.date.today().isoformat()
+
     for sesi in sesi_menggantung:
         app = sesi["nama_aplikasi"]
-        if app in jalan_sekarang:
-            # App masih jalan -> anggap sesi ini lanjutan, jangan bikin duplikat baru
+        waktu_mulai_sesi = sesi.get("waktu_mulai", "")
+
+        # Cek apakah sesi ini udah lewat hari (dimulai BUKAN hari ini)
+        sudah_beda_hari = waktu_mulai_sesi and not waktu_mulai_sesi.startswith(hari_ini_str)
+
+        if app in jalan_sekarang and not sudah_beda_hari:
+            # App masih jalan DAN sesinya dari hari ini juga -> lanjutin
             _sesi_aktif[app] = True
             print(f"[MONITOR] Melanjutkan sesi {app} yang masih berjalan dari sebelumnya.")
         else:
-            # App udah gak jalan -> tutup sesi lama yang kelupaan ditutup
+            # App udah gak jalan, ATAU sesinya udah ganti hari -> tutup paksa sesi lama
             db.tutup_sesi_by_id(sesi["id"])
-            print(f"[MONITOR] Menutup sesi {app} yang menggantung dari sesi sebelumnya.")
+            print(f"[MONITOR] Menutup sesi {app} (alasan: {'ganti hari' if sudah_beda_hari else 'app sudah tidak berjalan'}).")
+            # Kalau app-nya MASIH jalan tapi sesinya beda hari, mulai sesi BARU buat hari ini
+            if app in jalan_sekarang:
+                db.mulai_sesi_aktivitas(app)
+                _sesi_aktif[app] = True
+                print(f"[MONITOR] Memulai sesi baru untuk {app} di hari ini.")
 
 def mulai_monitoring():
     """Jalankan background monitor di thread terpisah, daemon biar otomatis mati pas app ditutup."""

@@ -149,14 +149,41 @@ def _format_jadwal(daftar):
 def _analisa_pola(nama_aplikasi: str) -> str:
     """Hitung rata-rata jam mulai & durasi historis, bandingin sama hari ini."""
     import datetime
+    print(f"[DEBUG ANALISA] Fungsi dipanggil dengan nama_aplikasi='{nama_aplikasi}'")
     riwayat = db.ambil_riwayat_aktivitas(nama_aplikasi, hari=14)
 
     if len(riwayat) < 3:
         return f"Not enough history yet for {nama_aplikasi} to spot a pattern, Ian. Keep using it and ask me again in a few days!"
 
+    BATAS_MENIT_WAJAR = 960  # 16 jam, di atas ini dianggap data corrupt (sisa restart/sleep, dll)
+
+    def durasi_valid(s):
+        try:
+            mulai = datetime.datetime.fromisoformat(s['mulai'])
+            selesai = datetime.datetime.fromisoformat(s['selesai'])
+            return (selesai - mulai).total_seconds() / 60 <= BATAS_MENIT_WAJAR
+        except Exception:
+            return False
+
+    riwayat = [r for r in riwayat if durasi_valid(r)]
+
     hari_ini = datetime.date.today().isoformat()
     sesi_hari_ini = [r for r in riwayat if r['mulai'].startswith(hari_ini)]
     sesi_historis = [r for r in riwayat if not r['mulai'].startswith(hari_ini)]
+
+    # Tambahin sesi yang LAGI BERJALAN sekarang (belum 'selesai'), biar kehitung real-time
+    sesi_aktif_sekarang = db.ambil_sesi_terbuka()
+    for sesi in sesi_aktif_sekarang:
+        if sesi["nama_aplikasi"] == nama_aplikasi:
+            conn_temp = __import__('sqlite3').connect(db.DB_FILE)
+            cur_temp = conn_temp.cursor()
+            cur_temp.execute("SELECT waktu_mulai FROM aktivitas_log WHERE id = ?", (sesi["id"],))
+            waktu_mulai_aktif = cur_temp.fetchone()[0]
+            conn_temp.close()
+            # PENTING: cuma masukin kalau sesi ini BENERAN mulai hari ini.
+            # Kalau sesi ini udah berumur lebih dari hari ini (sisa nyangkut), JANGAN dihitung sebagai "hari ini".
+            if waktu_mulai_aktif.startswith(hari_ini):
+                sesi_hari_ini.append({"mulai": waktu_mulai_aktif, "selesai": datetime.datetime.now().isoformat()})
 
     def hitung_durasi_menit(sesi):
         total = 0
@@ -192,6 +219,7 @@ def _analisa_pola(nama_aplikasi: str) -> str:
     else:
         hasil += f"No {nama_aplikasi} activity detected yet today."
 
+    print(f"[DEBUG ANALISA] sesi_hari_ini={len(sesi_hari_ini)} sesi_historis={len(sesi_historis)} | hasil_mentah: {hasil}")
     return hasil
 
 # ==================== FIX FUNCTION MAP (ANTI-TYPO) ====================
@@ -203,7 +231,7 @@ FUNCTION_MAP = {
     "update_tugas": lambda a: ("Task updated!" if db.update_tugas(int(a.get("id_tugas", -1)), a.get("deskripsi"), a.get("deadline")) else "Couldn't find that task ID to update."),
     "tambah_jadwal": lambda a: f"Scheduled: '{a.get('aktivitas','')}' at {a.get('waktu','')}.",
     "lihat_jadwal": lambda a: _format_jadwal(db.ambil_jadwal()),
-    "analisa_produktivitas": lambda a: "Feature active",
+    "analisa_produktivitas": lambda a: _analisa_pola(a.get("nama_aplikasi", "")),
 }
 
 # Tools yang outputnya udah final & natural -> gak perlu dinarasiin ulang sama LLM (hemat 1x inference)
@@ -271,7 +299,10 @@ def perlu_tool_check(teks: str) -> bool:
         # tasks
         "task", "tugas", "todo", "to-do", "to do", "list", "kerjaan", "pekerjaan",
         # jadwal
-        "schedule", "jadwal", "agenda", "deadline", "remind", "ingatkan", "hari ini", "today", "calendar"
+        "schedule", "jadwal", "agenda", "deadline", "remind", "ingatkan", "hari ini", "today", "calendar",
+        # produktivitas
+        "productivity", "productive", "produktivitas", "produktif",
+        "pattern", "pola", "activity", "aktivitas",
     ]
     return any(kata in teks_lower for kata in kata_kunci)
 
@@ -424,7 +455,7 @@ def neira_auto_remember(perintah_user: str, jawaban_neira: str):
 
 
 # ==================== WEB SERVER BACKEND (PYQT6 STYLE & CLEAN ROUTING) ====================
-from http.server import SimpleHTTPRequestHandler, HTTPServer
+from http.server import SimpleHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 import json
 import urllib.parse
 import webbrowser
@@ -515,17 +546,17 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data.decode('utf-8')) if content_length > 0 else {}
 
-        # # SHUTDOWN VIA BEACON TAB CLOSE
-        # if self.path == '/api/shutdown':
-        #     self.send_response(200)
-        #     self.end_headers()
-        #     print("\n🔌 Tab Browser ditutup oleh Ian. Mematikan Server Neira...")
-        #     def kill():
-        #         time.sleep(0.5)
-        #         os._exit(0)
-        #     import threading
-        #     threading.Thread(target=kill).start()
-        #     return
+        # SHUTDOWN VIA BEACON TAB CLOSE
+        if self.path == '/api/shutdown':
+            self.send_response(200)
+            self.end_headers()
+            print("\n🔌 Tab Browser ditutup oleh Ian. Mematikan Server Neira...")
+            def kill():
+                time.sleep(0.5)
+                os._exit(0)
+            import threading
+            threading.Thread(target=kill).start()
+            return
 
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
@@ -554,7 +585,7 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
 
 def jalankan_server_neira():
     server_address = ('', 5000)
-    httpd = HTTPServer(server_address, NeiraServerHandler)
+    httpd = ThreadingHTTPServer(server_address, NeiraServerHandler)
     print("🌍 Neira Premium Server Sync running on http://localhost:5000")
     webbrowser.open("http://localhost:5000")
     httpd.serve_forever()
