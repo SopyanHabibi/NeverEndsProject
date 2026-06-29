@@ -79,6 +79,16 @@ def inisialisasi_db():
             konten TEXT NOT NULL
         )
     ''')
+    
+    # 8. TABEL BARU: Simpan context gambar terakhir per user/sesi
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS analisis_gambar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            nama_gambar TEXT NOT NULL,
+            teks_gambar TEXT NOT NULL
+        )
+    ''')
 
     conn.commit()
     conn.close()
@@ -396,6 +406,38 @@ def simpan_chunk_dokumen(session_id: int, nama_file: str, chunk_index: int, kont
     cursor.execute(
         "INSERT INTO dokumen_chunks (session_id, nama_file, chunk_index, konten) VALUES (?, ?, ?, ?)",
         (session_id, nama_file, chunk_index, konten)
+    )
+    conn.commit()
+    conn.close()
+
+def hapus_chunks_sesi(session_id: int):
+    """Hapus dokumen lama di sesi ini — cuma 1 dokumen aktif per sesi, biar simpel."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM dokumen_chunks WHERE session_id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+def ambil_chunks_sesi(session_id: int) -> list:
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT chunk_index, konten, nama_file FROM dokumen_chunks WHERE session_id = ? ORDER BY chunk_index",
+        (session_id,)
+    )
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"index": b[0], "konten": b[1], "nama_file": b[2]} for b in baris]
+
+
+# ==================== FITUR ANALISIS GAMBAR ====================
+
+def simpan_konteks_gambar(session_id: int, nama_gambar: str, teks: str):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO dokumen_chunks (session_id, nama_gambar, teks) VALUES (?, ?, ?)",
+        (session_id, nama_gambar, teks)
     )
     conn.commit()
     conn.close()

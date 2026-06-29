@@ -1,0 +1,29 @@
+
+
+Flow
+
+
+            User
+              │
+      upload gambar + prompt
+              │
+              ▼
+      Image Router (Neira)
+              │
+      ┌───────┴────────┐
+      │                │
+ gambar?            tidak?
+      │                │
+      ▼                ▼
+ Moondream         Qwen2.5
+      │
+ deskripsi gambar
+      │
+      ▼
+gabungkan dengan prompt user
+      │
+      ▼
+Qwen2.5 7B
+      │
+      ▼
+Jawaban akhir
