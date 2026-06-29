@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
         isFirstChatInSession = true;
         document.getElementById('chatContainer').innerHTML = `
             <div class="welcome-screen" id="welcomeScreen">
-                <h1 class="animate-fade-up">Halo, Ian</h1>
+                <h1 class="animate-fade-up">Hello, Ian</h1>
                 <p class="animate-fade-up-delay">How can I assist your tech journey today?</p>
             </div>`;
         loadSessions();
@@ -31,6 +31,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('sendBtn').addEventListener('click', kirimPesan);
 });
+
+// Upload dokumen via tombol
+    document.getElementById('uploadBtn').addEventListener('click', () => {
+        document.getElementById('fileInput').click();
+    });
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) uploadDokumen(e.target.files[0]);
+    });
+
+    // Upload dokumen via drag & drop ke area chat
+    const dropZone = document.getElementById('chatContainer');
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+    });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) uploadDokumen(e.dataTransfer.files[0]);
+    });
 
 async function loadSessions() {
     try {
@@ -216,6 +239,45 @@ function appendBubble(text, isUser) {
     container.scrollTop = container.scrollHeight;
     return row;
 }
+
+async function uploadDokumen(file) {
+    const ekstensi = file.name.split('.').pop().toLowerCase();
+    if (!['pdf', 'docx', 'pptx'].includes(ekstensi)) {
+        alert("Cuma support PDF, DOCX, atau PPTX ya, Ian.");
+        return;
+    }
+
+    // Pastikan ada session_id aktif dulu (buat sesi baru kalau belum ada)
+    if (!currentSessionId) {
+        const res = await fetch('/api/chat-stream?pesan=&session_id=');
+        // fallback simple: minta user kirim 1 chat dulu kalau belum ada sesi
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        appendBubble(`📄 Uploading <b>${file.name}</b>...`, false);
+
+        const response = await fetch('/api/upload-document', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                session_id: currentSessionId,
+                filename: file.name,
+                filedata: base64
+            })
+        });
+        const hasil = await response.json();
+
+        if (hasil.status === 'success') {
+            appendBubble(`✅ <b>${hasil.filename}</b> has been uploaded and processed successfully (${hasil.chunks} chunks). Feel free to ask anything about its contents, request a summary, or even generate a quiz!`, false);
+        } else {
+            appendBubble(`❌ Upload failed: ${hasil.message}`, false);
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
 
 // AMAN: Bagian shutdown beacon kita hapus total dari sini agar pas di-refresh Neira TIDAK MATI!
 

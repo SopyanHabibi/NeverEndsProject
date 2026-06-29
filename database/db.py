@@ -68,6 +68,17 @@ def inisialisasi_db():
             waktu_selesai DATETIME
         )
     ''')
+    
+    # 7. TABEL BARU: Chunk dokumen yang diupload per sesi
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS dokumen_chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER NOT NULL,
+            nama_file TEXT NOT NULL,
+            chunk_index INTEGER NOT NULL,
+            konten TEXT NOT NULL
+        )
+    ''')
 
     conn.commit()
     conn.close()
@@ -294,11 +305,12 @@ def hapus_jadwal(id_jadwal: int) -> bool:
 
 def mulai_sesi_aktivitas(nama_aplikasi: str) -> int:
     """Mencatat aplikasi mulai terdeteksi jalan. Dipanggil sama background monitor."""
+    import datetime
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO aktivitas_log (nama_aplikasi, waktu_mulai) VALUES (?, CURRENT_TIMESTAMP)",
-        (nama_aplikasi,)
+        "INSERT INTO aktivitas_log (nama_aplikasi, waktu_mulai) VALUES (?, ?)",
+        (nama_aplikasi, datetime.datetime.now().isoformat(sep=' ', timespec='seconds'))
     )
     id_baru = cursor.lastrowid
     conn.commit()
@@ -307,18 +319,20 @@ def mulai_sesi_aktivitas(nama_aplikasi: str) -> int:
 
 def selesaikan_sesi_aktivitas(nama_aplikasi: str):
     """Menutup sesi aktivitas terbuka terakhir untuk aplikasi tertentu (waktu_selesai diisi sekarang)."""
+    import datetime
+    waktu_sekarang = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     try:
         cursor.execute('''
             UPDATE aktivitas_log
-            SET waktu_selesai = CURRENT_TIMESTAMP
+            SET waktu_selesai = ?
             WHERE id = (
                 SELECT id FROM aktivitas_log
                 WHERE nama_aplikasi = ? AND waktu_selesai IS NULL
                 ORDER BY id DESC LIMIT 1
             )
-        ''', (nama_aplikasi,))
+        ''', (waktu_sekarang, nama_aplikasi))
         conn.commit()
     except Exception as e:
         print(f"Gagal menutup sesi aktivitas: {e}")
@@ -326,12 +340,13 @@ def selesaikan_sesi_aktivitas(nama_aplikasi: str):
         conn.close()
 
 def tutup_semua_sesi_aktif():
-    """Menutup SEMUA sesi yang masih kebuka (waktu_selesai NULL). Dipanggil pas Neira ditutup,
-    biar gak ada sesi 'menggantung' selamanya kalau app dimatiin paksa."""
+    """Menutup SEMUA sesi yang masih kebuka (waktu_selesai NULL)..."""
+    import datetime
+    waktu_sekarang = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE aktivitas_log SET waktu_selesai = CURRENT_TIMESTAMP WHERE waktu_selesai IS NULL")
+        cursor.execute("UPDATE aktivitas_log SET waktu_selesai = ? WHERE waktu_selesai IS NULL", (waktu_sekarang,))
         conn.commit()
     except Exception as e:
         print(f"Gagal menutup sesi aktif: {e}")
@@ -364,8 +379,42 @@ def ambil_sesi_terbuka() -> list:
 
 def tutup_sesi_by_id(id_sesi: int):
     """Tutup 1 sesi spesifik berdasarkan ID-nya."""
+    import datetime
+    waktu_sekarang = datetime.datetime.now().isoformat(sep=' ', timespec='seconds')
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute("UPDATE aktivitas_log SET waktu_selesai = CURRENT_TIMESTAMP WHERE id = ?", (id_sesi,))
+    cursor.execute("UPDATE aktivitas_log SET waktu_selesai = ? WHERE id = ?", (waktu_sekarang, id_sesi))
     conn.commit()
     conn.close()
+    
+
+# ==================== FITUR ANALISIS DOKUMEN ====================
+
+def simpan_chunk_dokumen(session_id: int, nama_file: str, chunk_index: int, konten: str):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO dokumen_chunks (session_id, nama_file, chunk_index, konten) VALUES (?, ?, ?, ?)",
+        (session_id, nama_file, chunk_index, konten)
+    )
+    conn.commit()
+    conn.close()
+
+def hapus_chunks_sesi(session_id: int):
+    """Hapus dokumen lama di sesi ini — cuma 1 dokumen aktif per sesi, biar simpel."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM dokumen_chunks WHERE session_id = ?", (session_id,))
+    conn.commit()
+    conn.close()
+
+def ambil_chunks_sesi(session_id: int) -> list:
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT chunk_index, konten, nama_file FROM dokumen_chunks WHERE session_id = ? ORDER BY chunk_index",
+        (session_id,)
+    )
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"index": b[0], "konten": b[1], "nama_file": b[2]} for b in baris]

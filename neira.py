@@ -7,9 +7,11 @@ import ollama
 import wikipediaapi
 import threading
 import subprocess
+import base64
+import tempfile
 from typing import Optional
 from fitur import sistem, profil
-from tools import tools_neira, monitor
+from tools import tools_neira, monitor, dokumen
 
 # Kita kunci path absolut agar db_neira selalu sinkron di satu tempat
 DIR_NEIRA = os.path.dirname(os.path.abspath(__file__))
@@ -320,6 +322,13 @@ def proses_perintah_backend(perintah, session_id):
             yield "Catch you later, Ian! Stay productive! 🚀"
             return
         
+        # Shortcut waktu — jawab langsung dari sistem, jangan biarin Qwen "nebak" jam
+        perintah_lower_cek = perintah.lower()
+        if "what time" in perintah_lower_cek or "jam berapa" in perintah_lower_cek or "current time" in perintah_lower_cek:
+            waktu_sekarang = datetime.datetime.now().strftime("%I:%M %p")
+            yield f"It's currently {waktu_sekarang} in Medan, Ian."
+            return
+        
         # 1. Simpan pesan user ke SQLite
         db.simpan_chat(session_id, "user", perintah)
         
@@ -335,8 +344,30 @@ def proses_perintah_backend(perintah, session_id):
         
         # 3. Cek kebutuhan Live Web Search
         if perlu_akses_internet(perintah):
-            yield "🌐 *Neira is searching the live web...*\n\n"
+            yield "🌐 Neira is searching the live web...\n\n"
             messages_payload.append({'role': 'user', 'content': ambil_info_internet(perintah)})
+            
+        # 3.5 Cek apakah ada dokumen aktif di sesi ini, suntik konteks relevan kalau ada
+        chunks_dokumen = db.ambil_chunks_sesi(session_id)
+        if chunks_dokumen:
+            perintah_lower = perintah.lower()
+            kata_kunci_ringkas = ["summarize", "ringkas", "summary", "rangkum", "quiz", "kuis", "soal"]
+            
+            if any(k in perintah_lower for k in kata_kunci_ringkas):
+                konteks_dokumen = dokumen.pilih_chunks_sample(chunks_dokumen, max_chunks=5)
+            else:
+                konteks_dokumen = dokumen.pilih_chunks_relevan(chunks_dokumen, perintah, top_n=3)
+
+            nama_file_aktif = chunks_dokumen[0]["nama_file"]
+            messages_payload.append({
+                'role': 'user',
+                'content': (
+                    f"Here is relevant content from the document '{nama_file_aktif}' that Ian uploaded:\n\n"
+                    f"{konteks_dokumen}\n\n"
+                    f"Use this content to answer Ian's question. If asked to summarize, summarize ONLY based on "
+                    f"this content. If asked to make a quiz, create quiz questions based ONLY on this content."
+                )
+            })
             
         # 4. Ambil riwayat obrolan lama agar Neira tidak amnesia masa lalu
         riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=8)
@@ -545,6 +576,48 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data.decode('utf-8')) if content_length > 0 else {}
+        
+        # 0. UPLOAD DOKUMEN (PDF/DOCX/PPTX)
+        if self.path == '/api/upload-document':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                session_id = int(data.get('session_id'))
+                nama_file = data.get('filename', 'dokumen')
+                ekstensi = nama_file.split('.')[-1].lower()
+                filedata_b64 = data.get('filedata')
+
+                if ekstensi not in ('pdf', 'docx', 'pptx'):
+                    self.wfile.write(json.dumps({"status": "error", "message": "Format tidak didukung. Cuma PDF, DOCX, PPTX."}).encode('utf-8'))
+                    return
+
+                file_bytes = base64.b64decode(filedata_b64)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ekstensi}") as tmp:
+                    tmp.write(file_bytes)
+                    tmp_path = tmp.name
+
+                teks = dokumen.ekstrak_teks(tmp_path, ekstensi)
+                os.remove(tmp_path)
+
+                if not teks.strip():
+                    self.wfile.write(json.dumps({"status": "error", "message": "Gagal membaca isi dokumen, atau dokumen kosong."}).encode('utf-8'))
+                    return
+
+                chunks = dokumen.pecah_jadi_chunks(teks)
+                db.hapus_chunks_sesi(session_id)  # cuma 1 dokumen aktif per sesi
+                for i, chunk in enumerate(chunks):
+                    db.simpan_chunk_dokumen(session_id, nama_file, i, chunk)
+
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "filename": nama_file,
+                    "chunks": len(chunks)
+                }).encode('utf-8'))
+            except Exception as e:
+                print(f"[UPLOAD ERROR] {e}")
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
 
         # SHUTDOWN VIA BEACON TAB CLOSE
         if self.path == '/api/shutdown':
