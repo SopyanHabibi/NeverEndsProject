@@ -13,6 +13,7 @@ PETA_APLIKASI = {
     "explorer": "explorer", "file explorer": "explorer",
     "terminal": "wt", "cmd": "cmd",
     "word": "winword", "excel": "excel",
+    "instagram": "instagram",
 }
 
 # Browser butuh perlakuan khusus karena sering gak ke-register di PATH
@@ -44,6 +45,7 @@ SITUS_WEB = {
     "youtube": "https://www.youtube.com",
     "github": "https://www.github.com",
     "gmail": "https://mail.google.com",
+    "instagram": "https://instagram.com/_sop.ayam/",
 }
 
 def _cari_executable(nama_command: str, daftar_fallback: list) -> str | None:

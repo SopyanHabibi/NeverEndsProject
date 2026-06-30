@@ -9,6 +9,7 @@ import threading
 import subprocess
 import base64
 import tempfile
+import base64 as b64lib
 from typing import Optional
 from fitur import sistem, profil
 from tools import tools_neira, monitor, dokumen
@@ -616,6 +617,48 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                 }).encode('utf-8'))
             except Exception as e:
                 print(f"[UPLOAD ERROR] {e}")
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
+        
+        # 0.5 UPLOAD GAMBAR UNTUK ANALISIS VISION
+        if self.path == '/api/upload-image':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                session_id_raw = data.get('session_id')
+                pertanyaan = data.get('pertanyaan', 'Describe this image in detail.')
+                filedata_b64 = data.get('filedata')
+                nama_file = data.get('filename', 'image')
+
+                if not session_id_raw:
+                    session_id = db.buat_sesi_baru(judul=f"📷 {nama_file[:15]}")
+                else:
+                    session_id = int(session_id_raw)
+
+                # Simpan pesan user dulu (biar muncul di history)
+                db.simpan_chat(session_id, "user", f"[Uploaded image: {nama_file}] {pertanyaan}")
+
+                # Panggil model vision (moondream) secara terpisah dari Qwen
+                hasil_vision = ollama.chat(
+                    model='moondream',
+                    messages=[{
+                        'role': 'user',
+                        'content': pertanyaan,
+                        'images': [filedata_b64]
+                    }]
+                )
+                deskripsi = hasil_vision['message']['content']
+
+                db.simpan_chat(session_id, "assistant", deskripsi)
+
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "session_id": session_id,
+                    "deskripsi": deskripsi
+                }).encode('utf-8'))
+            except Exception as e:
+                print(f"[VISION ERROR] {e}")
                 self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
             return
 

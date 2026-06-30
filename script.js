@@ -39,6 +39,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('fileInput').addEventListener('change', (e) => {
         if (e.target.files.length > 0) uploadDokumen(e.target.files[0]);
     });
+    
+    document.getElementById('imageBtn').addEventListener('click', () => {
+        document.getElementById('imageInput').click();
+    });
+    document.getElementById('imageInput').addEventListener('change', (e) => {
+        if (e.target.files.length > 0) uploadGambar(e.target.files[0]);
+    });
 
     // Upload dokumen via drag & drop ke area chat
     const dropZone = document.getElementById('chatContainer');
@@ -54,6 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
         dropZone.classList.remove('drag-over');
         if (e.dataTransfer.files.length > 0) uploadDokumen(e.dataTransfer.files[0]);
     });
+
 
 async function loadSessions() {
     try {
@@ -275,6 +283,52 @@ async function uploadDokumen(file) {
             appendBubble(`❌ Upload failed: ${hasil.message}`, false);
         }
     };
+    reader.readAsDataURL(file);
+}
+
+async function uploadGambar(file) {
+    const tipeValid = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!tipeValid.includes(file.type)) {
+        alert("Only JPG, PNG, and WEBP images are supported.");
+        return;
+    }
+
+    const pertanyaan = prompt("What would you like to know about this image? (Leave blank for a general description)") || "Describe this image in detail.";
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+
+        appendBubble(`<img src="${reader.result}" style="max-width:250px; border-radius:12px; margin-bottom:8px;"><br>${pertanyaan}`, true);
+        const loadingRow = appendBubble('<span class="thinking-dots">Analyzing image...</span>', false);
+        const textNode = loadingRow.querySelector(".neira-text");
+
+        try {
+            const response = await fetch('/api/upload-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: currentSessionId,
+                    pertanyaan: pertanyaan,
+                    filedata: base64,
+                    filename: file.name
+                })
+            });
+
+            const hasil = await response.json();
+
+            if (hasil.status === 'success') {
+                currentSessionId = hasil.session_id;
+                textNode.innerHTML = formatMarkdownToHtml(hasil.deskripsi);
+                loadSessions();
+            } else {
+                textNode.innerHTML = `❌ Image analysis failed: ${hasil.message}`;
+            }
+        } catch (e) {
+            textNode.innerHTML = `⚠️ Error: ${e.message}`;
+        }
+    };
+
     reader.readAsDataURL(file);
 }
 
