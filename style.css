@@ -7,6 +7,7 @@
     --accent-blue: #7aa2f7;
     --accent-purple: #bb9af7;
     --accent-pink: #f7768e;
+    --accent-red: #fa0330;
     --gradient-accent: linear-gradient(135deg, var(--accent-blue), var(--accent-purple), var(--accent-pink));
     --user-bubble: #292e42;
 }
@@ -348,4 +349,343 @@ body {
 .history-list {
     scrollbar-width: thin;
     scrollbar-color: var(--bg-surface-2) transparent;
+}
+
+/* ==========================================
+   CUSTOM CONFIRMATION MODAL (TOKYO NIGHT STYLE)
+   ========================================== */
+.confirm-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 10, 16, 0.8);
+    backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 10001;
+}
+
+/* Aktifkan Modal */
+.confirm-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Kotak Dialog Utama */
+.confirm-box {
+    background: #1c1c24; /* Latar gelap pekat sesuai gambar */
+    color: var(--text-primary);
+    padding: 24px;
+    border-radius: 20px; /* Lengkungan membulat smooth */
+    width: 90%;
+    max-width: 440px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+    transform: scale(0.9);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border: 1px solid var(--bg-surface-2);
+}
+
+.confirm-overlay.active .confirm-box {
+    transform: scale(1);
+}
+
+/* Judul Modal */
+.confirm-box h3 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+/* Teks Deskripsi */
+.confirm-box p {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 24px;
+}
+
+/* Nama chat yang di-bold */
+.confirm-box p strong {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+/* Link Settings */
+.confirm-box .settings-link {
+    color: var(--text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Container Tombol Kanan Bawah */
+.confirm-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* Base Tombol Bulat Lonjong */
+.confirm-buttons button {
+    padding: 12px 24px;
+    border-radius: 25px; 
+    border: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Tombol Cancel (Transparan & Border Tipis) */
+.btn-confirm-cancel {
+    background: #25252f;
+    color: #ffffff;
+    border: 1px solid #3a3a4a !important;
+}
+
+.btn-confirm-cancel:hover {
+    background: #2f2f3b;
+}
+
+/* Tombol Delete (Merah Menyala) */
+.btn-confirm-delete {
+    background: var(--accent-red); /* #f7768e asli Tokyo Night */
+    color: #ffffff;
+}
+
+.btn-confirm-delete:hover {
+    filter: brightness(1.2);
+    transform: scale(1.02);
+}
+
+/* ==========================================
+   CUSTOM PROMPT MODAL STYLES (TOKYO NIGHT CARD)
+   ========================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 10, 16, 0.8); /* Gelap transparan */
+    backdrop-filter: blur(8px);         /* Efek blur kaca */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    z-index: 10000;
+}
+
+/* Aktifkan Modal */
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Kotak Dialog berbentuk Card Split */
+.modal-box {
+    background: var(--bg-surface);
+    display: flex;
+    flex-direction: row; /* Berjejer horizontal */
+    width: 90%;
+    max-width: 650px;    /* Diperlebar agar muat gambar + teks */
+    height: auto;
+    max-height: 350px;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    transform: scale(0.9);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border: 1px solid var(--bg-surface-2);
+    overflow: hidden;    /* Menjaga border-radius gambar tetap rapi */
+}
+
+.modal-overlay.active .modal-box {
+    transform: scale(1);
+}
+
+/* Sisi Kiri: Preview Gambar */
+.modal-preview-side {
+    flex: 1;
+    background: var(--bg-base);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    border-right: 1px solid var(--bg-surface-2);
+}
+
+#customPromptPreview {
+    max-width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* Sisi Kanan: Form Input */
+.modal-form-side {
+    flex: 1.2;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Teks Judul/Pesan */
+#customPromptMessage {
+    margin-top: 0;
+    margin-bottom: 14px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+/* Input Field */
+#customPromptInput {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--bg-base);
+    border: 1px solid var(--bg-surface-2);
+    border-radius: 8px;
+    color: var(--accent-pink); /* Warna ketikan teks */
+    box-sizing: border-box;
+    margin-bottom: 20px;
+    outline: none;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+#customPromptInput::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* Border berubah saat focus */
+#customPromptInput:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 8px rgba(122, 162, 247, 0.2);
+}
+
+/* Container Tombol */
+.modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* Tombol Dasar */
+.modal-buttons button {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+/* Tombol Lewati / Skip */
+.btn-cancel {
+    background: var(--bg-base);
+    color: var(--text-muted);
+}
+
+.btn-cancel:hover {
+    background: var(--bg-surface-2);
+    color: var(--text-primary);
+}
+
+/* Tombol Kirim */
+.btn-submit {
+    background: var(--accent-blue);
+    color: var(--bg-base);
+}
+
+.btn-submit:hover {
+    background: var(--accent-purple); /* Berubah ungu estetik saat di-hover */
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+/* ==========================================
+   INLINE RENAME INPUT (TOKYO NIGHT STYLE)
+   ========================================== */
+.history-rename-input {
+    flex: 1;
+    background: var(--bg-base); /* Gelap pekat */
+    border: 1px solid var(--accent-blue); /* Aksen biru penanda sedang fokus edit */
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: inherit; /* Mengikuti ukuran font .history-title */
+    font-family: inherit;
+    padding: 2px 6px;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Mengubah warna highlight/blok teks default menjadi khas Tokyo Night */
+.history-rename-input::selection {
+    background: var(--bg-surface-2);
+    color: var(--accent-pink);
+}
+
+
+/* ==========================================
+   MINI ALERT TOAST (TOKYO NIGHT STYLE)
+   ========================================== */
+.toast-container {
+    position: absolute;
+    bottom: 100%; /* Memaksa toast muncul tepat di atas wrapper input */
+    left: 50%;
+    transform: translate(-50%, 15px); /* Geser sedikit ke bawah sebelum aktif */
+    background: #1c1c24; /* Senada dengan modal konfirmasi sebelumnya */
+    color: var(--text-primary);
+    border: 1px solid var(--accent-pink); /* Border pink kemerahan penanda error */
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    white-space: nowrap; /* Mencegah teks patah baris */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1); /* Efek memantul halus */
+    z-index: 999;
+}
+
+/* State ketika toast aktif */
+.toast-container.show {
+    opacity: 1;
+    transform: translate(-50%, -10px); /* Naik ke atas area input wrapper */
+    pointer-events: auto;
+}
+
+/* Icon warning kecil di dalam toast */
+.toast-container i {
+    color: var(--accent-pink);
+    margin-right: 8px;
+}
+
+/* Responsive: Jika dibuka di HP biar numpuk vertikal */
+@media (max-width: 600px) {
+    .modal-box {
+        flex-direction: column;
+        max-height: 90vh;
+    }
+    .modal-preview-side {
+        border-right: none;
+        border-bottom: 1px solid var(--bg-surface-2);
+        max-height: 180px;
+    }
 }

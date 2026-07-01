@@ -32,6 +32,7 @@ The goal is to build the experience around them.
 * ⚡ Optimized prompt pipeline.
 * 🔧 Tool Calling
 * 📄 Document Analysis
+* 👁️ Vision (Image Understanding)
 * 🌐 Internet Search
 * 🔍 Memory retrieval using keyword detection.
 
@@ -43,7 +44,6 @@ The roadmap is constantly evolving, but currently includes:
 
 * 🔊 Voice Input
 * 🗣️ Voice Output
-* 👁️ Vision (Image Understanding)
 * 🔌 Plugin System
 * 🤖 Autonomous Task Execution
 * 📂 Workspace Awareness
