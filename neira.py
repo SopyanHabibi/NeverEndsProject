@@ -11,7 +11,7 @@ import base64
 import tempfile
 import base64 as b64lib
 from typing import Optional
-from fitur import sistem, profil
+# from fitur import sistem, profil
 from tools import tools_neira, monitor, dokumen
 
 # Kita kunci path absolut agar db_neira selalu sinkron di satu tempat

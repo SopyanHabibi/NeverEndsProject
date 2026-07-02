@@ -1,42 +1,84 @@
 // ==================== GERBANG UTAMA (ENTRY POINT) ====================
 import { injectModalsAndToasts } from './js/ui.js';
-import { loadSessions, switchSession, renameSession, deleteSession, currentSessionId, setSessionId, setIsFirstChat } from './js/session.js';
+import { loadSessions, currentSessionId, setSessionId, setIsFirstChat } from './js/session.js';
 import { kirimPesan } from './js/chat.js';
 import { uploadDokumen, uploadGambar } from './js/upload.js';
 
+// --- FUNGSI GENERATOR GREETING DINAMIS (WAKTU + ACAK) ---
+function getDynamicWelcomeContent() {
+    // 1. Logika Opsi 2: Sapaan berdasarkan waktu lokal (Tetap personal ada nama Ian)
+    const hours = new Date().getHours();
+    let greetingTitle = "Hello, Ian"; // Default fallback
+
+    if (hours >= 5 && hours < 12) {
+        greetingTitle = "Good morning, Ian";
+    } else if (hours >= 12 && hours < 17) {
+        greetingTitle = "Good afternoon, Ian";
+    } else if (hours >= 17 && hours < 21) {
+        greetingTitle = "Good evening, Ian";
+    } else if (hours >= 21 || hours < 5) {
+        // Vibe buat nemenin kamu kalau lagi ngoding tengah malam
+        greetingTitle = "Hello, Late Night Coder Ian"; 
+    }
+
+    // 2. Logika Opsi 1: Kalimat penjelas acak (Tech & Code vibe)
+    const subtitles = [
+        "How can I assist your tech journey today?",
+        "Ready to squash some bugs or write something epic?",
+        "What are we building or configuring today?",
+        "Let's turn your logic into running code.",
+        "Need help with an architecture, script, or a quick debug?"
+    ];
+    const randomIndex = Math.floor(Math.random() * subtitles.length);
+    const chosenSubtitle = subtitles[randomIndex];
+
+    return { title: greetingTitle, subtitle: chosenSubtitle };
+}
+
+// --- ENGINE UTAMA DOM LOADED ---
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Inisialisasi Tampilan & Sesi Awal
     loadSessions();
     injectModalsAndToasts();
 
-    // Helper aman untuk memasang event listener
+    // Jalankan greeting dinamis untuk tampilan AWAL saat aplikasi pertama dimuat (Refresh)
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatContainer && !currentSessionId) {
+        const welcomeData = getDynamicWelcomeContent();
+        chatContainer.innerHTML = `
+            <div class="welcome-screen" id="welcomeScreen">
+                <h1 class="animate-fade-up">${welcomeData.title}</h1>
+                <p class="animate-fade-up-delay">${welcomeData.subtitle}</p>
+            </div>`;
+    }
+
     const safeAddListener = (id, event, callback) => {
         const element = document.getElementById(id);
         if (element) element.addEventListener(event, callback);
     };
 
-    // 2. Event Listener: Sidebar & New Chat
-    safeAddListener('menuBtn', 'click', () => {
-        document.getElementById('sidebar').classList.toggle('collapsed');
-    });
-
+    // Event Listener: New Chat Button (Kombinasi Sempurna Opsi 1 + Opsi 2)
     safeAddListener('newChatBtn', 'click', () => {
         setSessionId(null);
         setIsFirstChat(true);
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-            chatContainer.innerHTML = `
+        
+        const container = document.getElementById('chatContainer');
+        if (container) {
+            // Ambil konten fresh (waktu saat ini + subtitle acak baru)
+            const welcomeData = getDynamicWelcomeContent();
+            
+            container.innerHTML = `
                 <div class="welcome-screen" id="welcomeScreen">
-                    <h1 class="animate-fade-up">Hello, Ian</h1>
-                    <p class="animate-fade-up-delay">How can I assist your tech journey today?</p>
+                    <h1 class="animate-fade-up">${welcomeData.title}</h1>
+                    <p class="animate-fade-up-delay">${welcomeData.subtitle}</p>
                 </div>`;
         }
+        
         loadSessions();
         const inputArea = document.getElementById('userInput');
         if (inputArea) inputArea.focus();
     });
 
-    // 3. Event Listener: Input & Kirim Pesan
+    // --- Sisa Event Listener Bawaan Kamu di Bawah ( userInput, sendBtn, uploadBtn, dsb ) ---
     safeAddListener('userInput', 'keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -46,7 +88,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     safeAddListener('sendBtn', 'click', kirimPesan);
 
-    // 4. Event Listener: Upload File & Gambar (Manual via Klik)
+    safeAddListener('menuBtn', 'click', (e) => {
+        e.preventDefault(); // Mencegah glitch jika tombol berupa tag anchor/link
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            sidebar.classList.toggle('collapsed');
+            console.log("Sidebar status collapsed:", sidebar.classList.contains('collapsed')); // Untuk debugging di console browser
+        } else {
+            console.error("Kritis: Elemen dengan id='sidebar' tidak ditemukan di HTML!");
+        }
+    });
+
     safeAddListener('uploadBtn', 'click', () => {
         const fileInput = document.getElementById('fileInput');
         if (fileInput) fileInput.click();
@@ -57,7 +109,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     
     safeAddListener('imageBtn', 'click', () => {
-        
         const imageInput = document.getElementById('imageInput');
         if (imageInput) imageInput.click();
     });
@@ -66,39 +117,25 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.target.files.length > 0) uploadGambar(e.target.files[0]);
     });
 
-    // 5. Event Listener: Drag & Drop Area Chat PINTAR
     const dropZone = document.getElementById('chatContainer');
     if (dropZone) {
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
-            
             if (e.dataTransfer.files.length > 0) {
                 const fileTerdrop = e.dataTransfer.files[0];
-                const tipeFile = fileTerdrop.type;
-
-                if (tipeFile.startsWith('image/')) {
-                    uploadGambar(fileTerdrop);
-                } else {
-                    uploadDokumen(fileTerdrop);
-                }
+                if (fileTerdrop.type.startsWith('image/')) { uploadGambar(fileTerdrop); } 
+                else { uploadDokumen(fileTerdrop); }
             }
         });
     }
 
-    // 6. Otomatis fokus ke textarea saat Neira dijalankan pertama kali
     const inputArea = document.getElementById('userInput');
     if (inputArea) inputArea.focus();
 });
 
-// Beacon shutdown tetap ditaruh secara global di pintu utama
 window.addEventListener('beforeunload', () => {
     navigator.sendBeacon('/api/shutdown');
 });

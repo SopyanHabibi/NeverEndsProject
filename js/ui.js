@@ -36,7 +36,7 @@ export function injectModalsAndToasts() {
         const toastHTML = `
             <div id="miniAlertToast" class="toast-container">
                 <i class="fa-solid fa-triangle-exclamation"></i>
-                <span id="toastMessage">Pesan error di sini</span>
+                <span id="toastMessage">This is a mini alert message.</span>
             </div>`;
         inputWrapper.insertAdjacentHTML('afterbegin', toastHTML);
     }

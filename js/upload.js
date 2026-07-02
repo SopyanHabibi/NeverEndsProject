@@ -6,12 +6,12 @@ import { appendBubble } from './chat.js';
 export async function uploadDokumen(file) {
     const ekstensi = file.name.split('.').pop().toLowerCase();
     if (!['pdf', 'docx', 'pptx'].includes(ekstensi)) {
-        showMiniAlert("Cuma support PDF, DOCX, atau PPTX ya, Ian.");
+        showMiniAlert("I can only process PDF, DOCX, and PPTX documents, Ian.");
         return;
     }
 
     if (!currentSessionId) {
-        showMiniAlert("Kirim satu pesan teks terlebih dahulu untuk membuka sesi obrolan, Ian!");
+        showMiniAlert("Please send a text message first to start a conversation, Ian!");
         return;
     }
 
@@ -48,7 +48,7 @@ export async function uploadDokumen(file) {
 export async function uploadGambar(file) {
     const tipeValid = ['image/jpeg', 'image/png', 'image/webp'];
     if (!tipeValid.includes(file.type)) {
-        showMiniAlert("Cuma support JPG, PNG, atau WEBP ya, Ian.");
+        showMiniAlert("I can only process JPG, PNG, and WEBP images, Ian.");
         return;
     }
 
