@@ -38,17 +38,21 @@
 
             <footer class="input-area">
                 <div class="input-wrapper">
-                    <textarea id="userInput" placeholder="Ask Neira..." rows="1"></textarea>
+                    <textarea id="userInput" placeholder="Ask Neira..." rows="1" autofocus></textarea>
+                    
                     <input type="file" id="fileInput" accept=".pdf,.docx,.pptx" style="display:none;">
                     <button id="uploadBtn" class="action-btn" title="Upload Document"><i class="fa-solid fa-paperclip fa-lg"></i></button>
+                    
                     <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
                     <button id="imageBtn" class="action-btn" title="Upload Image"><i class="fa-regular fa-image fa-lg"></i></button>
+
+                    <button id="sendBtn" class="action-btn" title="Send Message"><i class="fa-solid fa-paper-plane fa-lg"></i></button>
                 </div>
             </footer>
         </main>
     </div>
 
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
     <script src="https://kit.fontawesome.com/e7c9547f6e.js" crossorigin="anonymous"></script>
 
     <!-- <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> -->

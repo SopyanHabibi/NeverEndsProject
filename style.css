@@ -262,13 +262,18 @@ body {
 }
 
 .input-wrapper {
-    background-color: var(--bg-surface);
-    border: 1px solid var(--bg-surface-2);
-    border-radius: 26px;
+    position: relative; /* WAJIB ADA agar koordinat absolute si toast mengacu ke kotak input ini */
     display: flex;
     align-items: center;
-    padding: 10px 18px;
     gap: 12px;
+    background-color: var(--bg-surface);
+    padding: 10px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--bg-surface-2);
+    transition: border-color 0.25s ease;
+    max-width: 840px;
+    margin: 0 auto;
+    width: 100%;
 }
 
 #userInput {
@@ -646,28 +651,29 @@ body {
    ========================================== */
 .toast-container {
     position: absolute;
-    bottom: 100%; /* Memaksa toast muncul tepat di atas wrapper input */
+    bottom: 100%; 
     left: 50%;
-    transform: translate(-50%, 15px); /* Geser sedikit ke bawah sebelum aktif */
-    background: #1c1c24; /* Senada dengan modal konfirmasi sebelumnya */
+    transform: translate(-50%, 15px); 
+    background: #1c1c24; 
     color: var(--text-primary);
-    border: 1px solid var(--accent-pink); /* Border pink kemerahan penanda error */
+    border: 1px solid var(--accent-pink); 
     padding: 10px 16px;
     border-radius: 10px;
     font-size: 0.88rem;
     font-weight: 500;
-    white-space: nowrap; /* Mencegah teks patah baris */
+    white-space: nowrap; 
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1); /* Efek memantul halus */
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1); 
     z-index: 999;
+    display: flex; /* Gunakan flex agar icon dan tulisan berjejer rapi */
+    align-items: center;
 }
 
-/* State ketika toast aktif */
 .toast-container.show {
     opacity: 1;
-    transform: translate(-50%, -10px); /* Naik ke atas area input wrapper */
+    transform: translate(-50%, -10px); /* Bergerak mulus naik ke atas wrapper */
     pointer-events: auto;
 }
 
