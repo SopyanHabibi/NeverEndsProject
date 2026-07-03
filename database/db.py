@@ -17,11 +17,13 @@ def inisialisasi_db():
         )
     ''')
     
-    # 2. TABEL BARU: Untuk menyimpan daftar sesi chat di Sidebar
+    # 2. TABEL UPDATE: Ditambahkan kategori dan nama_project
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sesi_chat (
             session_id INTEGER PRIMARY KEY AUTOINCREMENT,
             judul TEXT,
+            kategori TEXT DEFAULT 'general',
+            nama_project TEXT,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -428,4 +430,37 @@ def ambil_chunks_sesi(session_id: int) -> list:
     baris = cursor.fetchall()
     conn.close()
     return [{"index": b[0], "konten": b[1], "nama_file": b[2]} for b in baris]
+
+
+def buat_sesi_project_baru(nama_project: str, judul="Debugging Session") -> int:
+    """Membuat sesi khusus project yang dikirim dari Vs Code"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO sesi_chat (judul, kategori, nama_project) VALUES (?, 'project', ?)", (judul, nama_project))
+    session_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return session_id
+
+def cek_project_eksis(nama_project: str):
+    """Mengecek apakah project ini sudah punya sesi aktif atau belum."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT session_id FROM sesi_chat WHERE kategori = 'project' AND nama_project = ? ORDER BY updated_at DESC LIMIT 1", (nama_project,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def ambil_semua_sesi_by_kategori(kategori='general') -> list:
+    """Mengambil daftar sesi berdasarkan kategori (untuk memisahkan sidebar browser)."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT session_id, judul, nama_project FROM sesi_chat WHERE kategori = ? ORDER BY updated_at DESC", (kategori,))
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"session_id": b[0], "judul": b[1], "nama_project": b[2]} for b in baris]
+
+
+
+
 
