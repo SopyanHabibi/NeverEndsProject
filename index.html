@@ -62,9 +62,12 @@
 
     <div id="codeQuestionModal" class="modal-overlay">
     <div class="modal-box">
-        <div class="modal-form-side" style="width:100%;">
+        <div class="modal-code-side">
+            <div class="code-filename" id="codeQuestionFileLabel">script.js</div>
+            <pre class="code-snippet-box"><code id="codeQuestionSnippet"></code></pre>
+        </div>
+        <div class="modal-form-side">
             <p id="codeQuestionMessage">What would you like to know about this code?</p>
-            <p style="font-size:0.8rem; opacity:0.6; margin-top:-8px;" id="codeQuestionFileLabel"></p>
             <input type="text" id="codeQuestionInput" autocomplete="off" placeholder="e.g. Why is this throwing an error?">
             <div class="modal-buttons">
                 <button id="codeQuestionCancel" class="btn-cancel">Cancel</button>

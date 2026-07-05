@@ -1,71 +1,35 @@
-# neira-vscode-bridge README
+# Neira Bridge
 
-This is the README for your extension "neira-vscode-bridge". After writing up a brief description, we recommend including the following sections.
+**Neira Bridge** is a lightweight VS Code extension that connects your editor directly to [Neira](https://github.com/), a personal, local-first AI assistant running on Ollama.
 
-## Features
+This extension does **not** contain any AI logic, model, memory, or database of its own. It is purely a bridge: it collects context from your editor (selected code, active file, diagnostics) and forwards it to the Neira backend running on `localhost:5000`. All reasoning, memory, and conversation history are handled entirely by Neira itself.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## ⚠️ Requirement
 
-For example if there is an image subfolder under your extension project workspace:
+**This extension only works if you have Neira installed and running locally.** It is not a standalone AI tool — it will not function without the Neira backend (`neira.py`) active on your machine.
 
-\!\[feature X\]\(images/feature-x.png\)
+This is a personal project built specifically to pair with Neira, and is not intended for general public use.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## How It Works
 
-## Requirements
+1. Select a block of code in the editor.
+2. Right-click and choose **"Neira: Ask about this code"**.
+3. The extension collects:
+   - The selected code
+   - The active file name
+   - The current workspace/project name
+   - Any diagnostics (errors/warnings) overlapping the selection
+4. This context is sent to Neira's backend.
+5. Your Neira browser tab automatically switches to a new "Project" session, shows a popup asking what you'd like to know, and streams the answer live once you submit.
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## Why It's Built This Way
 
-## Extension Settings
+Neira is designed as a self-contained personal AI ecosystem. This extension deliberately avoids duplicating any AI functionality inside VS Code — it exists only to make it easier to hand code context over to Neira, wherever Neira happens to be running.
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+## Status
 
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+Actively evolving alongside the main Neira project. No fixed roadmap — features are added as needed.
 
 ---
 
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Built by Ian, for Ian's own AI assistant, Neira. 🛠️

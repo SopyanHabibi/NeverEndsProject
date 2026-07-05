@@ -1,13 +1,18 @@
 {
-  "name": "neira-vscode-bridge",
-  "displayName": "neira-vscode-bridge",
-  "description": "",
+  "name": "neira-bridge",
+  "displayName": "Neira Bridge",
+  "description": "Send code context from VS Code straight to Neira, your personal AI assistant.",
   "version": "0.0.1",
+  "publisher": "ian",
+  "icon": "assets/icon.png",
   "engines": {
     "vscode": "^1.125.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages",
+    "AI",
+    "Chat",
+    "Snippets"
   ],
   "activationEvents": [],
   "main": "./out/extension.js",

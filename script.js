@@ -36,16 +36,18 @@ function getDynamicWelcomeContent() {
     return { title: greetingTitle, subtitle: chosenSubtitle };
 }
 
-function showCodeQuestionModal(fileName) {
+function showCodeQuestionModal(fileName, codeSnippet) {
     return new Promise((resolve) => {
         const modal = document.getElementById('codeQuestionModal');
         const input = document.getElementById('codeQuestionInput');
         const fileLabel = document.getElementById('codeQuestionFileLabel');
+        const snippetEl = document.getElementById('codeQuestionSnippet');
         const submitBtn = document.getElementById('codeQuestionSubmit');
         const cancelBtn = document.getElementById('codeQuestionCancel');
 
         input.value = "";
-        fileLabel.textContent = `File: ${fileName}`;
+        fileLabel.textContent = fileName;
+        snippetEl.textContent = codeSnippet || "(no code selected)";
         modal.classList.add('active');
         input.focus();
 
@@ -74,7 +76,7 @@ async function handleIncomingVsCodeContext(ctx) {
     setIsFirstChat(false);
     await switchSession(ctx.session_id);
 
-    const pertanyaan = await showCodeQuestionModal(ctx.fileName);
+    const pertanyaan = await showCodeQuestionModal(ctx.fileName, ctx.selectedCode);
     if (pertanyaan === null) return; // user cancel, tidak kirim apa-apa
 
     let promptLengkap = `I need help with this code from \`${ctx.fileName}\`.\n\n`;
