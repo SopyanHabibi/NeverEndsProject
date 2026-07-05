@@ -1,8 +1,9 @@
 // ==================== GERBANG UTAMA (ENTRY POINT) ====================
 import { injectModalsAndToasts } from './js/ui.js';
-import { loadSessions, currentSessionId, setSessionId, setIsFirstChat } from './js/session.js';
-import { kirimPesan } from './js/chat.js';
+import { loadSessions, currentSessionId, setSessionId, setIsFirstChat, switchSession } from './js/session.js';
+import { kirimPesan, kirimPesanDenganTeks } from './js/chat.js';
 import { uploadDokumen, uploadGambar } from './js/upload.js';
+import { appendBubble } from './js/chat.js';
 
 // --- FUNGSI GENERATOR GREETING DINAMIS (WAKTU + ACAK) ---
 function getDynamicWelcomeContent() {
@@ -35,10 +36,101 @@ function getDynamicWelcomeContent() {
     return { title: greetingTitle, subtitle: chosenSubtitle };
 }
 
+function showCodeQuestionModal(fileName) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('codeQuestionModal');
+        const input = document.getElementById('codeQuestionInput');
+        const fileLabel = document.getElementById('codeQuestionFileLabel');
+        const submitBtn = document.getElementById('codeQuestionSubmit');
+        const cancelBtn = document.getElementById('codeQuestionCancel');
+
+        input.value = "";
+        fileLabel.textContent = `File: ${fileName}`;
+        modal.classList.add('active');
+        input.focus();
+
+        const handleSubmit = () => {
+            const value = input.value.trim();
+            cleanup();
+            resolve(value || "Can you analyze this code and explain what it does or what might be wrong?");
+        };
+        const handleCancel = () => { cleanup(); resolve(null); };
+        const handleKeypress = (e) => { if (e.key === 'Enter') handleSubmit(); };
+        const cleanup = () => {
+            modal.classList.remove('active');
+            submitBtn.removeEventListener('click', handleSubmit);
+            cancelBtn.removeEventListener('click', handleCancel);
+            input.removeEventListener('keypress', handleKeypress);
+        };
+
+        submitBtn.addEventListener('click', handleSubmit);
+        cancelBtn.addEventListener('click', handleCancel);
+        input.addEventListener('keypress', handleKeypress);
+    });
+}
+
+async function handleIncomingVsCodeContext(ctx) {
+    setSessionId(ctx.session_id);
+    setIsFirstChat(false);
+    await switchSession(ctx.session_id);
+
+    const pertanyaan = await showCodeQuestionModal(ctx.fileName);
+    if (pertanyaan === null) return; // user cancel, tidak kirim apa-apa
+
+    let promptLengkap = `I need help with this code from \`${ctx.fileName}\`.\n\n`;
+    if (ctx.selectedCode) {
+        promptLengkap += `\`\`\`\n${ctx.selectedCode}\n\`\`\`\n\n`;
+    }
+    if (ctx.errorMessage) {
+        promptLengkap += `Detected issue: ${ctx.errorMessage}\n\n`;
+    }
+    promptLengkap += pertanyaan;
+
+    kirimPesanDenganTeks(promptLengkap);
+}
+
+function listenToLiveSession(sessionId) {
+    const container = document.getElementById('chatContainer');
+    const responseRow = appendBubble('<span class="thinking-dots">...</span>', false);
+    const textNode = responseRow.querySelector('.neira-text');
+
+    const es = new EventSource(`/api/session-stream?session_id=${sessionId}`);
+    let isFirstToken = true;
+    let accumulated = "";
+
+    es.onmessage = (event) => {
+        if (event.data === "[DONE]") {
+            es.close();
+            return;
+        }
+        if (isFirstToken) { textNode.innerHTML = ""; isFirstToken = false; }
+        try {
+            const obj = JSON.parse(event.data);
+            const clean = (obj.text || '').replace(/\[NEWLINE\]/g, '\n');
+            accumulated += clean;
+            textNode.innerHTML = accumulated;
+            container.scrollTop = container.scrollHeight;
+        } catch (e) {}
+    };
+    es.onerror = () => es.close();
+}
+
 // --- ENGINE UTAMA DOM LOADED ---
 document.addEventListener("DOMContentLoaded", () => {
     loadSessions();
     injectModalsAndToasts();
+
+
+    // BARU: polling cek apakah ada sesi baru dari VS Code
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/vscode/pending');
+            const data = await res.json();
+            if (data && data.session_id) {
+                handleIncomingVsCodeContext(data);
+            }
+        } catch (e) { /* diamkan */ }
+    }, 3000);
 
     // Jalankan greeting dinamis untuk tampilan AWAL saat aplikasi pertama dimuat (Refresh)
     const chatContainer = document.getElementById('chatContainer');
