@@ -13,6 +13,63 @@ export async function kirimPesan() {
     await kirimPesanDenganTeks(text);
 }
 
+export async function kirimPesanDenganTampilanCustom(displayHtml, actualPrompt) {
+    const welcome = document.getElementById('welcomeScreen');
+    if (welcome) welcome.classList.add('hidden');
+    document.getElementById('sidebar').classList.add('collapsed');
+
+    appendBubble(displayHtml, true);
+
+    const responseRow = appendBubble('<span class="thinking-dots">...</span>', false);
+    const textNode = responseRow.querySelector(".neira-text");
+
+    const encText = encodeURIComponent(actualPrompt);
+    const eventSource = new EventSource(`/api/chat-stream?pesan=${encText}&session_id=${currentSessionId || ''}`);
+
+    let isFirstToken = true;
+    let accumulatedText = "";
+
+    eventSource.onmessage = function(event) {
+        if (event.data.startsWith("[SESSION_ID_ASSIGNED:")) {
+            const extractedId = event.data.match(/\d+/)[0];
+            setSessionId(parseInt(extractedId));
+            return;
+        }
+
+        if (event.data === "[DONE]") {
+            eventSource.close();
+            setIsFirstChat(false);
+            loadSessions();
+            return;
+        }
+
+        if (isFirstToken) {
+            textNode.innerHTML = "";
+            isFirstToken = false;
+        }
+
+        let tokenMurni = "";
+        try {
+            const dataObj = JSON.parse(event.data);
+            if (dataObj && dataObj.text !== undefined) tokenMurni = dataObj.text;
+            else tokenMurni = event.data;
+        } catch(e) {
+            tokenMurni = event.data;
+        }
+
+        accumulatedText += tokenMurni;
+        textNode.innerHTML = formatMarkdownToHtml(accumulatedText);
+
+        const container = document.getElementById('chatContainer');
+        if (container) container.scrollTop = container.scrollHeight;
+    };
+
+    eventSource.onerror = function() {
+        textNode.innerHTML = "⚠️ Error streaming data dari Neira Ecosystem.";
+        eventSource.close();
+    };
+}
+
 export async function kirimPesanDenganTeks(text) {
     const welcome = document.getElementById('welcomeScreen');
     if (welcome) welcome.classList.add('hidden');

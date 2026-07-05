@@ -1,7 +1,7 @@
 // ==================== GERBANG UTAMA (ENTRY POINT) ====================
 import { injectModalsAndToasts } from './js/ui.js';
 import { loadSessions, currentSessionId, setSessionId, setIsFirstChat, switchSession } from './js/session.js';
-import { kirimPesan, kirimPesanDenganTeks } from './js/chat.js';
+import { kirimPesan, kirimPesanDenganTampilanCustom } from './js/chat.js';
 import { uploadDokumen, uploadGambar } from './js/upload.js';
 import { appendBubble } from './js/chat.js';
 
@@ -77,8 +77,9 @@ async function handleIncomingVsCodeContext(ctx) {
     await switchSession(ctx.session_id);
 
     const pertanyaan = await showCodeQuestionModal(ctx.fileName, ctx.selectedCode);
-    if (pertanyaan === null) return; // user cancel, tidak kirim apa-apa
+    if (pertanyaan === null) return;
 
+    // Teks yang benar-benar dikirim ke AI (lengkap, format code block markdown)
     let promptLengkap = `I need help with this code from \`${ctx.fileName}\`.\n\n`;
     if (ctx.selectedCode) {
         promptLengkap += `\`\`\`\n${ctx.selectedCode}\n\`\`\`\n\n`;
@@ -88,7 +89,16 @@ async function handleIncomingVsCodeContext(ctx) {
     }
     promptLengkap += pertanyaan;
 
-    kirimPesanDenganTeks(promptLengkap);
+    // Tampilan bubble di chat (ringkas, snippet kode + pertanyaan)
+    const escapedCode = (ctx.selectedCode || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const displayHtml = `
+        <div class="chat-code-snippet">
+            <div class="code-filename">${ctx.fileName}</div>
+            <code>${escapedCode}</code>
+        </div>
+        ${pertanyaan}`;
+
+    kirimPesanDenganTampilanCustom(displayHtml, promptLengkap);
 }
 
 function listenToLiveSession(sessionId) {

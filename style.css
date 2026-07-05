@@ -330,36 +330,64 @@ body {
 /* Chrome, Edge, Safari (WebKit-based) */
 .chat-container::-webkit-scrollbar,
 .history-list::-webkit-scrollbar,
-.code-snippet-box::-webkit-scrollbar {
+.code-snippet-box::-webkit-scrollbar,
+.chat-code-snippet::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 .chat-container::-webkit-scrollbar-track,
 .history-list::-webkit-scrollbar-track,
-.code-snippet-box::-webkit-scrollbar-track {
+.code-snippet-box::-webkit-scrollbar-track,
+.chat-code-snippet::-webkit-scrollbar-track {
     background: transparent;
 }
 
 .chat-container::-webkit-scrollbar-thumb,
 .history-list::-webkit-scrollbar-thumb,
-.code-snippet-box::-webkit-scrollbar-thumb {
+.code-snippet-box::-webkit-scrollbar-thumb,
+.chat-code-snippet::-webkit-scrollbar-thumb {
     background-color: var(--bg-surface-2);
     border-radius: 8px;
 }
 
 .chat-container::-webkit-scrollbar-thumb:hover,
 .history-list::-webkit-scrollbar-thumb:hover,
-.code-snippet-box::-webkit-scrollbar-thumb:hover {
+.code-snippet-box::-webkit-scrollbar-thumb:hover,
+.chat-code-snippet::-webkit-scrollbar-thumb:hover {
     background-color: var(--accent-purple);
 }
 
 /* Firefox */
 .chat-container,
 .history-list,
-.code-snippet-box {
+.code-snippet-box,
+.chat-code-snippet {
     scrollbar-width: thin;
     scrollbar-color: var(--bg-surface-2) transparent;
+}
+
+.chat-code-snippet {
+    background: var(--bg-base);
+    border: 1px solid var(--bg-surface-2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 6px 0;
+    max-height: 160px;
+    overflow: auto;
+    display: block;
+}
+
+.chat-code-snippet .code-filename {
+    margin-bottom: 6px;
+}
+
+.chat-code-snippet code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: var(--accent-blue);
+    white-space: pre;
+    line-height: 1.5;
 }
 
 /* ==========================================
