@@ -509,6 +509,9 @@ import urllib.parse
 import webbrowser
 import os
 
+_pending_vscode = {"data": None}
+_pending_lock = threading.Lock()
+
 class NeiraServerHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
@@ -551,14 +554,15 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
             except Exception as e:
                 print(f"Error streaming: {e}")
 
-        # 2. AMBIL DAFTAR HISTORI CHAT
+        # 2. AMBIL DAFTAR HISTORI CHAT (DIPISAH KATEGORI)
         elif parsed_url.path == '/api/sessions':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             try:
-                # Memanggil fungsi asli dari db.py kamu
-                sesi_db = db.ambil_semua_sesi()
+                # Ambil filter dari query string, default-nya 'general'
+                kat = query_params.get('kategori', ['general'])[0]
+                sesi_db = db.ambil_semua_sesi_by_kategori(kat)
                 self.wfile.write(json.dumps(sesi_db).encode('utf-8'))
             except Exception as e:
                 print(f"Gagal ambil sesi: {e}")
@@ -586,6 +590,15 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps([]).encode('utf-8'))
             return
             
+        elif parsed_url.path == '/api/vscode/pending':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            with _pending_lock:
+                pending = _pending_vscode["data"]
+                _pending_vscode["data"] = None
+            self.wfile.write(json.dumps(pending or {}).encode('utf-8'))
+            return
         else:
             super().do_GET()
 
@@ -593,6 +606,39 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
         data = json.loads(post_data.decode('utf-8')) if content_length > 0 else {}
+        
+        # ==================== ENDPOINT BARU: ENTRY POINT DARI VS CODE ====================
+        if self.path == '/api/vscode/ask':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                nama_project = data.get('projectName', 'Unknown Project')
+                nama_file = data.get('fileName', 'Unknown File')
+                kode_error = data.get('errorMessage', '')
+                kode_diblok = data.get('selectedCode', '')
+
+                session_id = db.cek_project_eksis(nama_project)
+                if not session_id:
+                    judul_baru = f"🛠️ Project: {nama_project}"
+                    session_id = db.buat_sesi_project_baru(nama_project, judul=judul_baru)
+
+                with _pending_lock:
+                    _pending_vscode["data"] = {
+                        "session_id": session_id,
+                        "fileName": nama_file,
+                        "selectedCode": kode_diblok,
+                        "errorMessage": kode_error
+                    }
+
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "session_id": session_id
+                }).encode('utf-8'))
+            except Exception as e:
+                print(f"[VS CODE API ERROR] {e}")
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
         
         # 0. UPLOAD DOKUMEN (PDF/DOCX/PPTX)
         if self.path == '/api/upload-document':
@@ -686,7 +732,6 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
             def kill():
                 time.sleep(0.5)
                 os._exit(0)
-            import threading
             threading.Thread(target=kill).start()
             return
 

@@ -14,8 +14,16 @@
             <div class="sidebar-header">
                 <button class="new-chat-btn" id="newChatBtn">➕ New Chat</button>
             </div>
-            <div class="history-list" id="historyList">
-                <!-- Di-render dinamis dari backend SQLite -->
+            <!-- Bagian Projects -->
+            <div class="sidebar-category-title">Projects</div>
+            <div id="projectList" class="history-list-container">
+                <div class="no-data-placeholder">No projects</div>
+            </div>
+
+            <!-- Bagian Chats / General -->
+            <div class="sidebar-category-title">Chats</div>
+            <div id="generalList" class="history-list-container">
+                <!-- Tempat chat umum muncul -->
             </div>
         </aside>
 
@@ -51,6 +59,23 @@
             </footer>
         </main>
     </div>
+
+    <div id="codeQuestionModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-code-side">
+            <div class="code-filename" id="codeQuestionFileLabel">script.js</div>
+            <pre class="code-snippet-box"><code id="codeQuestionSnippet"></code></pre>
+        </div>
+        <div class="modal-form-side">
+            <p id="codeQuestionMessage">What would you like to know about this code?</p>
+            <input type="text" id="codeQuestionInput" autocomplete="off" placeholder="e.g. Why is this throwing an error?">
+            <div class="modal-buttons">
+                <button id="codeQuestionCancel" class="btn-cancel">Cancel</button>
+                <button id="codeQuestionSubmit" class="btn-submit">Ask Neira</button>
+            </div>
+        </div>
+    </div>
+</div>
 
     <script type="module" src="script.js"></script>
     <script src="https://kit.fontawesome.com/e7c9547f6e.js" crossorigin="anonymous"></script>

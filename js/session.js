@@ -7,38 +7,61 @@ export let isFirstChatInSession = true;
 export function setSessionId(id) { currentSessionId = id; }
 export function setIsFirstChat(status) { isFirstChatInSession = status; }
 
+// Helper function untuk merender item ke dalam kontainer tertentu
+function renderItemsToContainer(sessions, container, placeholderText = "No chats") {
+    container.innerHTML = '';
+    
+    if (!sessions || !Array.isArray(sessions) || sessions.length === 0) {
+        container.innerHTML = `<div class="no-data-placeholder">${placeholderText}</div>`;
+        return;
+    }
+
+    sessions.forEach(s => {
+        const idSesi = s.session_id;
+        const judulSesi = s.judul;
+        if (!idSesi || !judulSesi) return;
+
+        const item = document.createElement('div');
+        item.className = `history-item ${idSesi === currentSessionId ? 'active' : ''}`;
+        
+        // Masukkan fungsi pemicu global agar aman dieksekusi dari HTML
+        window.triggerSwitchSession = switchSession;
+        window.triggerRenameSession = renameSession;
+        window.triggerDeleteSession = deleteSession;
+
+        item.innerHTML = `
+            <div class="history-title" onclick="window.triggerSwitchSession(${idSesi})">${judulSesi}</div>
+            <div class="history-actions">
+                <button class="action-btn" onclick="window.triggerRenameSession(${idSesi})">✏️</button>
+                <button class="action-btn" onclick="window.triggerDeleteSession(${idSesi}, '${judulSesi.replace(/'/g, "\\'")}')">🗑️</button>
+            </div>`;
+        container.appendChild(item);
+    });
+}
+
 export async function loadSessions() {
     try {
-        const response = await fetch('/api/sessions');
-        const sessions = await response.json();
-        const listContainer = document.getElementById('historyList');
-        if (!listContainer) return;
-        listContainer.innerHTML = '';
+        // 1. Ambil data kontainer HTML
+        const generalContainer = document.getElementById('generalList');
+        const projectContainer = document.getElementById('projectList');
+        if (!generalContainer || !projectContainer) return;
 
-        if (!sessions || !Array.isArray(sessions)) return;
+        // 2. Fetch data dari backend secara paralel (memanfaatkan endpoint terpisah)
+        const [resGeneral, resProject] = await Promise.all([
+            fetch('/api/sessions?kategori=general'),
+            fetch('/api/sessions?kategori=project')
+        ]);
 
-        sessions.forEach(s => {
-            const idSesi = s.session_id;
-            const judulSesi = s.judul;
-            if (!idSesi || !judulSesi) return;
+        const generalSessions = await resGeneral.json();
+        const projectSessions = await resProject.json();
 
-            const item = document.createElement('div');
-            item.className = `history-item ${idSesi === currentSessionId ? 'active' : ''}`;
-            
-            // Masukkan fungsi pemicu global agar aman dieksekusi dari HTML
-            window.triggerSwitchSession = switchSession;
-            window.triggerRenameSession = renameSession;
-            window.triggerDeleteSession = deleteSession;
+        // 3. Render masing-masing data ke kontainernya
+        renderItemsToContainer(generalSessions, generalContainer, "No chats");
+        renderItemsToContainer(projectSessions, projectContainer, "No projects");
 
-            item.innerHTML = `
-                <div class="history-title" onclick="window.triggerSwitchSession(${idSesi})">${judulSesi}</div>
-                <div class="history-actions">
-                    <button class="action-btn" onclick="window.triggerRenameSession(${idSesi})">✏️</button>
-                    <button class="action-btn" onclick="window.triggerDeleteSession(${idSesi}, '${judulSesi.replace(/'/g, "\\'")}')">🗑️</button>
-                </div>`;
-            listContainer.appendChild(item);
-        });
-    } catch (e) { console.error("Gagal memuat histori", e); }
+    } catch (e) { 
+        console.error("Gagal memuat histori kategori", e); 
+    }
 }
 
 export async function switchSession(id) {

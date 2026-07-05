@@ -7,20 +7,25 @@ export async function kirimPesan() {
     const text = input.value.trim();
     if (!text) return;
 
+    input.value = '';
+    autoGrow(input);
+
+    await kirimPesanDenganTeks(text);
+}
+
+export async function kirimPesanDenganTeks(text) {
     const welcome = document.getElementById('welcomeScreen');
     if (welcome) welcome.classList.add('hidden');
     document.getElementById('sidebar').classList.add('collapsed');
 
     appendBubble(text, true);
-    input.value = '';
-    autoGrow(input);
 
     const responseRow = appendBubble('<span class="thinking-dots">...</span>', false);
     const textNode = responseRow.querySelector(".neira-text");
 
     const encText = encodeURIComponent(text);
     const eventSource = new EventSource(`/api/chat-stream?pesan=${encText}&session_id=${currentSessionId || ''}`);
-    
+
     let isFirstToken = true;
     let accumulatedText = "";
 
@@ -34,7 +39,7 @@ export async function kirimPesan() {
         if (event.data === "[DONE]") {
             eventSource.close();
             setIsFirstChat(false);
-            loadSessions(); 
+            loadSessions();
             return;
         }
 
@@ -42,7 +47,7 @@ export async function kirimPesan() {
             textNode.innerHTML = "";
             isFirstToken = false;
         }
-        
+
         let tokenMurni = "";
         try {
             const dataObj = JSON.parse(event.data);
@@ -54,7 +59,7 @@ export async function kirimPesan() {
 
         accumulatedText += tokenMurni;
         textNode.innerHTML = formatMarkdownToHtml(accumulatedText);
-        
+
         const container = document.getElementById('chatContainer');
         if (container) container.scrollTop = container.scrollHeight;
     };
@@ -68,19 +73,19 @@ export async function kirimPesan() {
 export function appendBubble(text, isUser) {
     const container = document.getElementById('chatContainer');
     if (!container) return;
-    
+
     const row = document.createElement('div');
     row.className = isUser ? 'chat-row user-row' : 'chat-row neira-row';
-    
+
     let processedText = isUser ? text : formatMarkdownToHtml(text);
     if (!isUser && text.includes("thinking-dots")) {
-        processedText = text; 
+        processedText = text;
     }
 
-    row.innerHTML = isUser ? 
-        `<div class="user-bubble">${processedText}</div>` : 
+    row.innerHTML = isUser ?
+        `<div class="user-bubble">${processedText}</div>` :
         `<div class="neira-text">${processedText}</div>`;
-        
+
     container.appendChild(row);
     container.scrollTop = container.scrollHeight;
     return row;
