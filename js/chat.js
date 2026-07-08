@@ -40,6 +40,11 @@ export async function kirimPesanDenganTampilanCustom(displayHtml, actualPrompt) 
             eventSource.close();
             setIsFirstChat(false);
             loadSessions();
+            if (window.Prism) {
+                textNode.querySelectorAll('code[class*="language-"]').forEach(el => {
+                    Prism.highlightElement(el);
+                });
+            }
             return;
         }
 
@@ -57,7 +62,7 @@ export async function kirimPesanDenganTampilanCustom(displayHtml, actualPrompt) 
             tokenMurni = event.data;
         }
 
-        accumulatedText += tokenMurni;
+        accumulatedText += tokenMurni.replace(/\[NEWLINE\]/g, '\n');
         textNode.innerHTML = formatMarkdownToHtml(accumulatedText);
 
         const container = document.getElementById('chatContainer');
@@ -97,6 +102,11 @@ export async function kirimPesanDenganTeks(text) {
             eventSource.close();
             setIsFirstChat(false);
             loadSessions();
+            if (window.Prism) {
+                textNode.querySelectorAll('code[class*="language-"]').forEach(el => {
+                    Prism.highlightElement(el);
+                });
+            }
             return;
         }
 
@@ -114,9 +124,9 @@ export async function kirimPesanDenganTeks(text) {
             tokenMurni = event.data;
         }
 
-        accumulatedText += tokenMurni;
+        accumulatedText += tokenMurni.replace(/\[NEWLINE\]/g, '\n');
         textNode.innerHTML = formatMarkdownToHtml(accumulatedText);
-
+        
         const container = document.getElementById('chatContainer');
         if (container) container.scrollTop = container.scrollHeight;
     };
