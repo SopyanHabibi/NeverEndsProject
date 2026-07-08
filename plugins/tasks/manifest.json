@@ -1,0 +1,7 @@
+{
+    "id": "tasks",
+    "name": "Tasks Manager",
+    "version": "1.0.0",
+    "description": "Show active tasks",
+    "author": "Ian"
+}

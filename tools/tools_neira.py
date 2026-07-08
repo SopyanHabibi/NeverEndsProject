@@ -84,34 +84,34 @@ def buka_aplikasi(nama_aplikasi: str) -> str:
 
     return f"Couldn't find '{nama_aplikasi}' on this PC, Ian — it might not be installed, or it's not registered in PATH."
 
-def tampilkan_task_list():
-    """
-    Mengambil dan menampilkan daftar tugas (To-Do List) aktif milik Ian langsung dari SQLite.
-    """
-    try:
-        # Menarik data secara dinamis dari database kamu
-        if hasattr(db, 'ambil_semua_tugas'):
-            tugas_db = db.ambil_semua_tugas()
-        else:
-            # Fallback jika nama fungsi di database.py berbeda, sesuaikan di sini
-            return "⚠️ Fungsi 'ambil_semua_tugas' belum terdeteksi di database.py kamu, Ian."
+# def tampilkan_task_list():
+#     """
+#     Mengambil dan menampilkan daftar tugas (To-Do List) aktif milik Ian langsung dari SQLite.
+#     """
+#     try:
+#         # Menarik data secara dinamis dari database kamu
+#         if hasattr(db, 'ambil_semua_tugas'):
+#             tugas_db = db.ambil_semua_tugas()
+#         else:
+#             # Fallback jika nama fungsi di database.py berbeda, sesuaikan di sini
+#             return "⚠️ Fungsi 'ambil_semua_tugas' belum terdeteksi di database.py kamu, Ian."
 
-        if not tugas_db:
-            return "📝 **Daftar Tugas:**\n\nWah, kosong Ian! Semua tugas kamu sudah beres atau belum ada yang dicatat."
+#         if not tugas_db:
+#             return "📝 **Daftar Tugas:**\n\nWah, kosong Ian! Semua tugas kamu sudah beres atau belum ada yang dicatat."
 
-        res = "📝 **Daftar Tugas Aktif Kamu, Ian:**\n\n"
-        for i, t in enumerate(tugas_db, 1):
-            # Sesuaikan dengan nama kolom di tabel database kamu (misal: 'status', 'nama_tugas')
-            status = t.get('status', 'Belum')
-            nama_tugas = t.get('nama_tugas', t.get('tugas', 'Tugas Tanpa Nama'))
+#         res = "📝 **Daftar Tugas Aktif Kamu, Ian:**\n\n"
+#         for i, t in enumerate(tugas_db, 1):
+#             # Sesuaikan dengan nama kolom di tabel database kamu (misal: 'status', 'nama_tugas')
+#             status = t.get('status', 'Belum')
+#             nama_tugas = t.get('nama_tugas', t.get('tugas', 'Tugas Tanpa Nama'))
             
-            ikon_status = "✅" if status.lower() in ["selesai", "done", "1"] else "⏳"
-            res += f"{i}. {ikon_status} **{nama_tugas}**\n"
+#             ikon_status = "✅" if status.lower() in ["selesai", "done", "1"] else "⏳"
+#             res += f"{i}. {ikon_status} **{nama_tugas}**\n"
             
-        return res
+#         return res
 
-    except Exception as e:
-        return f"Waduh Ian, gagal mengambil daftar tugas dari SQLite. Error: {str(e)}"
+#     except Exception as e:
+#         return f"Waduh Ian, gagal mengambil daftar tugas dari SQLite. Error: {str(e)}"
 
 
 def tampilkan_jadwal_harian():

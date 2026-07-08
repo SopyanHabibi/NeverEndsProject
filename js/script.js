@@ -1,9 +1,9 @@
 // ==================== GERBANG UTAMA (ENTRY POINT) ====================
-import { injectModalsAndToasts } from './js/ui.js';
-import { loadSessions, currentSessionId, setSessionId, setIsFirstChat, switchSession } from './js/session.js';
-import { kirimPesan, kirimPesanDenganTampilanCustom } from './js/chat.js';
-import { uploadDokumen, uploadGambar } from './js/upload.js';
-import { appendBubble } from './js/chat.js';
+import { injectModalsAndToasts } from './ui.js';
+import { loadSessions, currentSessionId, setSessionId, setIsFirstChat, switchSession } from './session.js';
+import { kirimPesan, kirimPesanDenganTampilanCustom } from './chat.js';
+import { uploadDokumen, uploadGambar } from './upload.js';
+import { appendBubble } from './chat.js';
 
 // --- FUNGSI GENERATOR GREETING DINAMIS (WAKTU + ACAK) ---
 function getDynamicWelcomeContent() {
