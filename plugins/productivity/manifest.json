@@ -1,0 +1,7 @@
+{
+    "id": "productivity",
+    "name": "Productivity Analyzer",
+    "version": "1.0.0",
+    "description": "Analyze Ian's application usage patterns and historical averages",
+    "author": "Ian"
+}

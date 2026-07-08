@@ -1,0 +1,7 @@
+{
+    "id": "document_analyzer",
+    "name": "Document Analyzer Engine",
+    "version": "1.0.0",
+    "description": "Extract text from uploaded PDF, DOCX, or PPTX files and save them into session chunks",
+    "author": "Ian"
+}

@@ -1,0 +1,7 @@
+{
+    "id": "auto_remember",
+    "name": "Auto Memory Engine",
+    "version": "1.0.0",
+    "description": "Automatically detect and extract personal facts about Ian to update his profile",
+    "author": "Ian"
+}

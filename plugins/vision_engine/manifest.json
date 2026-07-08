@@ -1,0 +1,7 @@
+{
+    "id": "vision_engine",
+    "name": "Vision Engine",
+    "version": "1.0.0",
+    "description": "Process uploaded images using Moondream vision model and save history",
+    "author": "Ian"
+}
