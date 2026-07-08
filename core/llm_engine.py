@@ -282,6 +282,9 @@ def proses_perintah_backend(perintah, session_id):
 
         db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
         
+        # Panggil plugin auto_remember biar Neira nyimpen fakta baru tentang Ian ke tabel profil
+        plugin_manager.execute_plugin("auto_remember", perintah, respons_lengkap_neira)
+        
     except Exception as e:
         print(f"Crash pada proses perintah: {e}")
         yield f"⚠️ Backend system error: {e}"
