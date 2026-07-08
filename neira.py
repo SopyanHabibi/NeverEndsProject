@@ -551,8 +551,15 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                         payload = json.dumps({"text": token_aman})
                         self.wfile.write(f"data: {payload}\n\n".encode('utf-8'))
                         self.wfile.flush()
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
             except Exception as e:
                 print(f"Error streaming: {e}")
+                try:
+                    self.wfile.write(b"data: [DONE]\n\n")
+                    self.wfile.flush()
+                except:
+                    pass
 
         # 2. AMBIL DAFTAR HISTORI CHAT (DIPISAH KATEGORI)
         elif parsed_url.path == '/api/sessions':

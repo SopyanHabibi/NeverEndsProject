@@ -65,10 +65,56 @@ export function autoGrow(element) {
     element.style.height = (element.scrollHeight) + "px";
 }
 
-export function formatMarkdownToHtml(rawText) {
-    if (!rawText) return "";
-    return rawText
-        .replace(/\[NEWLINE\]/g, "<br>")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\n/g, "<br>");
+export function formatMarkdownToHtml(text) {
+    if (!text) return "";
+
+    const codeBlockRegex = /```(\w*)\n([\s\S]*?)(```|$)/g;
+    const savedBlocks = [];
+
+    // 1. Ekstrak semua code block dulu, ganti sementara jadi placeholder
+    let processedText = text.replace(codeBlockRegex, (match, language, code) => {
+        const lang = language || 'txt';
+
+        // Trim baris kosong di awal/akhir saja, isi tengah tetap utuh
+        const trimmedCode = code.replace(/^\n+/, '').replace(/\n+$/, '');
+
+        const cleanCode = trimmedCode
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        const safeCode = btoa(unescape(encodeURIComponent(trimmedCode)));
+
+        const blockHtml = `
+            <div class="minimal-code-wrapper">
+                <div class="minimal-code-header">
+                    <span class="minimal-code-lang">${lang.toLowerCase()}</span>
+                    <button class="minimal-code-copy-btn" data-code="${safeCode}" onclick="window.copyMinimalCode(this)" title="Copy code">
+                        <svg class="copy-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <svg class="check-icon hidden" viewBox="0 0 24 24" width="16" height="16" stroke="#4cd137" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </button>
+                </div>
+                <pre class="language-${lang.toLowerCase()}"><code class="language-${lang.toLowerCase()}">${cleanCode}</code></pre>
+            </div>
+        `;
+
+        savedBlocks.push(blockHtml);
+        return `\u0000BLOCK${savedBlocks.length - 1}\u0000`;
+    });
+
+    // 2. Baru proses inline-code, aman karena code block sudah "diamankan" jadi placeholder
+    processedText = processedText.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+    processedText = processedText.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+
+    // 3. Kembalikan code block asli menggantikan placeholder
+    processedText = processedText.replace(/\u0000BLOCK(\d+)\u0000/g, (match, index) => {
+        return savedBlocks[parseInt(index, 10)];
+    });
+
+    return processedText;
 }

@@ -330,36 +330,64 @@ body {
 /* Chrome, Edge, Safari (WebKit-based) */
 .chat-container::-webkit-scrollbar,
 .history-list::-webkit-scrollbar,
-.code-snippet-box::-webkit-scrollbar {
+.code-snippet-box::-webkit-scrollbar,
+.chat-code-snippet::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 .chat-container::-webkit-scrollbar-track,
 .history-list::-webkit-scrollbar-track,
-.code-snippet-box::-webkit-scrollbar-track {
+.code-snippet-box::-webkit-scrollbar-track,
+.chat-code-snippet::-webkit-scrollbar-track {
     background: transparent;
 }
 
 .chat-container::-webkit-scrollbar-thumb,
 .history-list::-webkit-scrollbar-thumb,
-.code-snippet-box::-webkit-scrollbar-thumb {
+.code-snippet-box::-webkit-scrollbar-thumb,
+.chat-code-snippet::-webkit-scrollbar-thumb {
     background-color: var(--bg-surface-2);
     border-radius: 8px;
 }
 
 .chat-container::-webkit-scrollbar-thumb:hover,
 .history-list::-webkit-scrollbar-thumb:hover,
-.code-snippet-box::-webkit-scrollbar-thumb:hover {
+.code-snippet-box::-webkit-scrollbar-thumb:hover,
+.chat-code-snippet::-webkit-scrollbar-thumb:hover {
     background-color: var(--accent-purple);
 }
 
 /* Firefox */
 .chat-container,
 .history-list,
-.code-snippet-box {
+.code-snippet-box,
+.chat-code-snippet {
     scrollbar-width: thin;
     scrollbar-color: var(--bg-surface-2) transparent;
+}
+
+.chat-code-snippet {
+    background: var(--bg-base);
+    border: 1px solid var(--bg-surface-2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 6px 0;
+    max-height: 160px;
+    overflow: auto;
+    display: block;
+}
+
+.chat-code-snippet .code-filename {
+    margin-bottom: 6px;
+}
+
+.chat-code-snippet code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: var(--accent-blue);
+    white-space: pre;
+    line-height: 1.5;
 }
 
 /* ==========================================
@@ -750,6 +778,81 @@ body {
 
 .history-list-container {
     margin-bottom: 15px;
+}
+
+/* Container Utama Box Kode */
+.minimal-code-wrapper {
+    background-color: #1e1e1e; /* Hitam pekat VS Code */
+    border: 1px solid #2d2d2d;
+    border-radius: 8px;
+    margin: 16px 0;
+    overflow: hidden;
+    font-family: 'Fira Code', Consolas, Monaco, monospace;
+}
+
+/* Header Tipis */
+.minimal-code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #1e1e1e;
+    padding: 10px 16px 4px 16px; /* Padding bawah agak tipis */
+}
+
+/* Teks Bahasa (lowercase & agak pudar) */
+.minimal-code-lang {
+    color: #858585;
+    font-size: 0.85rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Tombol Copy Berupa Ikon */
+.minimal-code-copy-btn {
+    background: transparent;
+    border: none;
+    color: #858585;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.minimal-code-copy-btn:hover {
+    color: #ffffff;
+    background-color: #2d2d2d;
+}
+
+/* Utility Class untuk Sembunyikan Ikon bergantian */
+.minimal-code-copy-btn .hidden {
+    display: none !important;
+}
+
+/* Penyesuaian ke Prism JS Pre Tag */
+.minimal-code-wrapper pre[class*="language-"] {
+    margin: 0 !important;
+    padding: 12px 16px 16px 16px !important;
+    background: transparent !important;
+    overflow-x: auto;
+}
+
+.minimal-code-wrapper code[class*="language-"] {
+    font-size: 0.9rem !important;
+    line-height: 1.6;
+    background: transparent !important;
+    font-family: 'Fira Code', Consolas, Monaco, monospace !important;
+}
+
+/* Gaya Inline Code Tetap Dipertahankan */
+code.inline-code {
+    background-color: #2d2d2d;
+    color: #e06c75;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
 }
 
 /* Responsive: Jika dibuka di HP biar numpuk vertikal */

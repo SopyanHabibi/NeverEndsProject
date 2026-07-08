@@ -20,7 +20,7 @@
   "commands": [
     {
       "command": "neira.askAboutSelection",
-      "title": "Neira: Ask about this code"
+      "title": "Ask Neira"
     }
   ],
   "menus": {
