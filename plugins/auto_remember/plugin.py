@@ -35,7 +35,13 @@ class AutoRememberPlugin(BasePlugin):
             fakta_baru = json.loads(raw_json)
             
             for kunci, nilai in fakta_baru.items():
-                if nilai: 
+                if nilai:
+                    # Kalau modelnya ngasih list (misal hobbies: [...]), gabungin jadi string
+                    if isinstance(nilai, list):
+                        nilai = ", ".join(str(v) for v in nilai)
+                    elif not isinstance(nilai, str):
+                        nilai = str(nilai)
+                    
                     print(f"[PLUGIN AUTO-REMEMBER] Saved -> {kunci}: {nilai}")
                     db.simpan_profil(kunci, nilai)
                     

@@ -35,6 +35,8 @@ The goal is to build the experience around them.
 * 👁️ Vision (Image Understanding)
 * 🌐 Internet Search
 * 🔍 Memory retrieval using keyword detection.
+* 📂 Basic Workspace Awareness
+* 🔌 Plugin System
 
 ---
 
@@ -44,9 +46,7 @@ The roadmap is constantly evolving, but currently includes:
 
 * 🔊 Voice Input
 * 🗣️ Voice Output
-* 🔌 Plugin System
 * 🤖 Autonomous Task Execution
-* 📂 Workspace Awareness
 * 📧 Email Integration
 * 📱 Mobile Companion
 * 🧩 API Support
@@ -76,6 +76,7 @@ Every version is simply another step forward.
 * HTML
 * CSS
 * JavaScript
+* TypeScript
 * Python
 * SQLite
 * Qwen 2.5 7B
