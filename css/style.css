@@ -283,9 +283,9 @@ body {
 }
 
 .input-wrapper {
-    position: relative; /* WAJIB ADA agar koordinat absolute si toast mengacu ke kotak input ini */
+    position: relative;
     display: flex;
-    align-items: center;
+    align-items: flex-end; /* Diubah dari center ke flex-end agar tombol kirim/klip tetap stay manis di bawah saat input membesar */
     gap: 12px;
     background-color: var(--bg-surface);
     padding: 10px 16px;
@@ -303,9 +303,28 @@ body {
     border: none;
     color: var(--text-primary);
     font-size: 15px;
-    resize: none;
     outline: none;
-    max-height: 150px;
+    resize: none;             /* Sembunyikan grip manual di kanan bawah */
+    height: 24px;             /* Tinggi awal untuk 1 baris */
+    max-height: 140px;        /* Batasan maksimal tinggi input */
+    line-height: 20px;
+    overflow-y: auto;         /* Munculkan scrollbar mini saat menabrak max-height */
+    padding: 2px 0;
+}
+
+/* Custom scrollbar tipis khusus area ketikan biar selaras dengan tema Cyberpunk baru */
+#userInput::-webkit-scrollbar {
+    width: 4px;
+}
+#userInput::-webkit-scrollbar-track {
+    background: transparent;
+}
+#userInput::-webkit-scrollbar-thumb {
+    background-color: var(--bg-surface-2);
+    border-radius: 4px;
+}
+#userInput::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-cyan);
 }
 
 .send-btn {

@@ -236,6 +236,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+
+    // --- LOGIKA AUTO RESIZE TEXTAREA (USER INPUT) ---
+    const userInputArea = document.getElementById('userInput');
+    if (userInputArea) {
+        userInputArea.addEventListener('input', function() {
+            // Reset ke tinggi satu baris awal agar saat teks dihapus, input ikut mengecil
+            this.style.height = '24px'; 
+            
+            // Mengatur tinggi dinamis berdasarkan konten teks di dalamnya
+            this.style.height = this.scrollHeight + 'px';
+        });
+    }
+
     const inputArea = document.getElementById('userInput');
     if (inputArea) inputArea.focus();
 });

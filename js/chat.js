@@ -4,11 +4,14 @@ import { currentSessionId, loadSessions, setSessionId, setIsFirstChat } from './
 
 export async function kirimPesan() {
     const input = document.getElementById('userInput');
-    const text = input.value.trim();
-    if (!text) return;
+    if (!input || input.value.trim() === '') return;
+
+    const text = input.value;
 
     input.value = '';
-    autoGrow(input);
+    
+    // Kembalikan tinggi textarea ke baris tunggal setelah kirim pesan
+    input.style.height = '24px'; 
 
     await kirimPesanDenganTeks(text);
 }
