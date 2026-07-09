@@ -52,22 +52,30 @@ body {
 
 .sidebar-header {
     display: flex;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .new-chat-btn {
-    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;               /* Biar lebarnya penuh mengikuti sidebar seperti history item */
     background: transparent;
-    border: 1px solid var(--bg-surface-2);
-    color: var(--text-primary);
-    padding: 10px;
-    border-radius: 20px;
+    border: none;              /* Kita hilangkan border bulat lamanya */
+    color: var(--text-muted);  /* Warna teks awal agak redup sama seperti history item */
+    padding: 6px 10px;         /* Padding disamakan persis dengan history item baru kita */
+    border-radius: 8px;        /* Lengkungan kotak disamakan */
     cursor: pointer;
     transition: 0.2s;
+    font-size: 0.92rem;        /* Ukuran font disamakan */
+    font-weight: normal;       /* Font weight normal agar konsisten */
 }
 
+/* Efek Hover disamakan persis dengan .history-item:hover */
 .new-chat-btn:hover {
     background-color: var(--bg-surface-2);
+    color: var(--text-primary);
 }
 
 .history-list {
