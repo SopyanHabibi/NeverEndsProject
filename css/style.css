@@ -1,22 +1,31 @@
 :root {
-    --bg-base: #1a1b26;
-    --bg-surface: #24283b;
-    --bg-surface-2: #414868;
-    --text-primary: #dadeee;
-    --text-muted: #a9b1d6;
-    --accent-blue: #7aa2f7;
-    --accent-purple: #bb9af7;
-    --accent-pink: #f7768e;
-    --accent-red: #fa0330;
-    --gradient-accent: linear-gradient(135deg, var(--accent-blue), var(--accent-purple), var(--accent-pink));
-    --user-bubble: #292e42;
+    /* Base Backgrounds (Deep Cyberpunk Dark) */
+    --bg-base: #0a0b10;          /* Hitam pekat malam Night City dengan tint ungu/biru sangat tipis */
+    --bg-surface: #12141d;       /* Abu-abu gelap pekat untuk sidebar & komponen utama */
+    --bg-surface-2: #242936;     /* Batas/border dan warna hover item */
+    
+    /* Text Colors */
+    --text-primary: #f0f3f8;     /* Putih bersih agar kontras tinggi dan mudah dibaca */
+    --text-muted: #727b91;       /* Abu-abu sirkuit untuk teks sekunder */
+    
+    /* Neon Accents (The Edgerunner Signature) */
+    --accent-yellow: #fcee0a;    /* Kuning Stabilo/Neon khas logo Cyberpunk & jacket David */
+    --accent-cyan: #00f0ff;      /* Cyan/Aqua neon elektrik khas sirkuit dan UI Sandevistan */
+    --accent-magenta: #ff0055;   /* Merah/Pink magenta tajam untuk alert & bahaya (ala Lucy/Cyberpsychosis) */
+    
+    /* Gradients & Components */
+    --gradient-accent: linear-gradient(135deg, var(--accent-yellow), #ff9900); /* Gradasi kuning ke oranye neon */
+    --user-bubble: #1a1d29;      /* Bubble chat user dibuat abu-abu gelap dengan border tipis nantinya */
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Roboto, sans-serif;
+    /* Ganti font ke Inter atau 'Plus Jakarta Sans'. Keduanya sudah otomatis terisi/padat */
+    font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -69,13 +78,13 @@ body {
     cursor: pointer;
     transition: 0.2s;
     font-size: 0.92rem;        /* Ukuran font disamakan */
-    font-weight: normal;       /* Font weight normal agar konsisten */
+    font-weight: 500;       /* Font weight normal agar konsisten */
 }
 
-/* Efek Hover disamakan persis dengan .history-item:hover */
+/* Efek hover untuk New Chat & History */
 .new-chat-btn:hover {
     background-color: var(--bg-surface-2);
-    color: var(--text-primary);
+    color: var(--accent-yellow); /* Menyala kuning saat di-hover */
 }
 
 .history-list {
@@ -92,6 +101,7 @@ body {
     border-radius: 8px;
     cursor: pointer;
     color: var(--text-muted);
+    font-weight: 500;
     margin-bottom: 2px;       /* Diperkecil dari 4px ke 2px */
     transition: 0.2s;
     font-size: 0.92rem;       /* Sedikit dikecilkan agar teks panjang muat lebih banyak */
@@ -99,7 +109,7 @@ body {
 
 .history-item:hover, .history-item.active {
     background-color: var(--bg-surface-2);
-    color: var(--text-primary);
+    color: var(--accent-cyan);   /* Menyala cyan elektrik saat aktif/di-hover */
 }
 
 .history-title {
@@ -157,7 +167,7 @@ body {
 
 .status-indicator {
     font-size: 13px;
-    color: #23a55a;
+    color: var(--accent-cyan);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -166,7 +176,8 @@ body {
 .status-dot {
     width: 8px;
     height: 8px;
-    background-color: #23a55a;
+    background-color: var(--accent-cyan);
+    box-shadow: 0 0 8px var(--accent-cyan);
     border-radius: 50%;
 }
 
@@ -199,10 +210,11 @@ body {
 
 .welcome-screen h1 {
     font-size: 42px;
-    background: var(--gradient-accent);
+    background: var(--gradient-accent); /* Menggunakan gradasi kuning-oranye baru */
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 12px;
+    font-weight: 700; /* Makin padat dengan font Inter baru kamu */
 }
 
 /* ANIMATIONS ALASKA AI */
@@ -364,7 +376,7 @@ body {
 .history-list-container::-webkit-scrollbar-thumb:hover,
 .code-snippet-box::-webkit-scrollbar-thumb:hover,
 .chat-code-snippet::-webkit-scrollbar-thumb:hover {
-    background-color: var(--accent-purple);
+    background-color: var(--accent-cyan);
 }
 
 /* Firefox */
