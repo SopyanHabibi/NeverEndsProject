@@ -535,7 +535,7 @@ body {
 
 /* Tombol Delete (Merah Menyala) */
 .btn-confirm-delete {
-    background: var(--accent-red); /* #f7768e asli Tokyo Night */
+    background: var(--accent-magenta); /* #f7768e asli Tokyo Night */
     color: #ffffff;
 }
 
@@ -730,7 +730,7 @@ body {
 
 /* Tombol Kirim */
 .btn-submit {
-    background: var(--accent-blue);
+    background: var(--accent-yellow);
     color: var(--bg-base);
 }
 
