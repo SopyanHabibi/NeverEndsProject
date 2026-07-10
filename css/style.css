@@ -10,6 +10,8 @@
     
     /* Neon Accents (The Edgerunner Signature) */
     --accent-yellow: #fcee0a;    /* Kuning Stabilo/Neon khas logo Cyberpunk & jacket David */
+    --accent-orange: #ff9900;    /* Oranye neon untuk tombol & highlight */
+    --accent-pink: #ff00aa;       /* Pink neon tajam untuk alert & interaksi UI */
     --accent-cyan: #00f0ff;      /* Cyan/Aqua neon elektrik khas sirkuit dan UI Sandevistan */
     --accent-magenta: #ff0055;   /* Merah/Pink magenta tajam untuk alert & bahaya (ala Lucy/Cyberpsychosis) */
     
@@ -735,7 +737,7 @@ body {
 }
 
 .btn-submit:hover {
-    background: var(--accent-purple); /* Berubah ungu estetik saat di-hover */
+    background: var(--accent-orange); /* Berubah ungu estetik saat di-hover */
     color: var(--text-primary);
     transform: translateY(-1px);
 }
