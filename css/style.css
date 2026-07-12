@@ -899,6 +899,15 @@ code.inline-code {
     font-size: 0.9em;
 }
 
+.math-block {
+    overflow-x: auto;
+    padding: 12px 0;
+    text-align: center;
+}
+.math-inline {
+    padding: 0 2px;
+}
+
 /* Responsive: Jika dibuka di HP biar numpuk vertikal */
 @media (max-width: 600px) {
     .modal-box {

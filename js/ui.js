@@ -65,11 +65,24 @@ export function autoGrow(element) {
     element.style.height = (element.scrollHeight) + "px";
 }
 
+function renderMathSafely(latex, displayMode) {
+    if (!window.katex) return latex; // fallback kalau KaTex belum load
+    try {
+        return katex.renderToString(latex, {
+            throwOnError: false,
+            displayMode: displayMode
+        });
+    } catch (error) {
+        return latex; // fallback ke raw text kalau LaTex nya invalid
+    }
+}
+
 export function formatMarkdownToHtml(text) {
     if (!text) return "";
 
     const codeBlockRegex = /```(\w*)\n([\s\S]*?)(```|$)/g;
     const savedBlocks = [];
+
 
     // 1. Ekstrak semua code block dulu, ganti sementara jadi placeholder
     let processedText = text.replace(codeBlockRegex, (match, language, code) => {
@@ -107,11 +120,26 @@ export function formatMarkdownToHtml(text) {
         return `\u0000BLOCK${savedBlocks.length - 1}\u0000`;
     });
 
-    // 2. Baru proses inline-code, aman karena code block sudah "diamankan" jadi placeholder
+
+    // 1.5. BARU: Ekstrak block math \[ ... \]
+    processedText = processedText.replace(/\\\[([\s\S]*?)\\\]/g, (match, latex) => {
+        const html = renderMathSafely(latex.trim(), true);
+        savedBlocks.push(`<div class="math-block">${html}</div>`);
+        return `\u0000BLOCK${savedBlocks.length - 1}\u0000`;
+    });
+
+    // 1.6. BARU: Ekstrak inline math \( ... \)
+    processedText = processedText.replace(/\\\(([\s\S]*?)\\\)/g, (match, latex) => {
+        const html = renderMathSafely(latex.trim(), false);
+        savedBlocks.push(`<span class="math-inline">${html}</span>`);
+        return `\u0000BLOCK${savedBlocks.length - 1}\u0000`;
+    });
+
+    // 2. Inline-code & bold (SAMA SEPERTI SEBELUMNYA)
     processedText = processedText.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
     processedText = processedText.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
 
-    // 3. Kembalikan code block asli menggantikan placeholder
+    // 3. Restore semua placeholder (code block + math, sama-sama pakai mekanisme ini)
     processedText = processedText.replace(/\u0000BLOCK(\d+)\u0000/g, (match, index) => {
         return savedBlocks[parseInt(index, 10)];
     });
