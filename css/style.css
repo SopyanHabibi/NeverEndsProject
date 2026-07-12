@@ -908,6 +908,47 @@ code.inline-code {
     padding: 0 2px;
 }
 
+.workflow-list {
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.workflow-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #1a1d2b;
+    margin-bottom: 8px;
+}
+
+.workflow-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+}
+
+.workflow-item-info span {
+    color: #8a8f9e;
+    font-size: 12px;
+}
+
+.workflow-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.workflow-delete-btn {
+    background: none;
+    border: none;
+    color: #e06c75;
+    cursor: pointer;
+}
+
 /* Responsive: Jika dibuka di HP biar numpuk vertikal */
 @media (max-width: 600px) {
     .modal-box {

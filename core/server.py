@@ -100,6 +100,18 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                 _pending_vscode["data"] = None
             self.wfile.write(json.dumps(pending or {}).encode('utf-8'))
             return
+        
+        elif parsed_url.path == '/api/workflows':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                data = db.ambil_semua_workflow()
+                self.wfile.write(json.dumps(data).encode('utf-8'))
+            except Exception as e:
+                print(f"Gagal ambil workflow: {e}")
+                self.wfile.write(json.dumps([]).encode('utf-8'))
+            return
             
         else:
             # Tetap layani asset statis (HTML/JS/CSS) jika diakses langsung lewat localhost:5000
@@ -205,10 +217,66 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                 os._exit(0)
             threading.Thread(target=kill).start()
             return
+        
+        # 7. WORKFLOW CRUD
+        elif self.path == '/api/workflow/create':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                id_baru = db.tambah_workflow(
+                    data.get('nama'),
+                    data.get('trigger_type'),
+                    json.dumps(data.get('trigger_config')),
+                    json.dumps(data.get('actions'))
+                )
+                self.wfile.write(json.dumps({"status": "success", "id": id_baru}).encode('utf-8'))
+            except Exception as e:
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
+
+        elif self.path == '/api/workflow/toggle':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                db.update_status_workflow(int(data.get('id')), bool(data.get('enabled')))
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            except Exception as e:
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
+
+        elif self.path == '/api/workflow/delete':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                db.hapus_workflow(int(data.get('id')))
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            except Exception as e:
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
+
+
+def _workflow_scheduler_loop():
+    """Cek workflow time-based tiap 30 detik."""
+    import time as time_module
+    from core.llm_engine import plugin_manager as pm
+
+    while True:
+        try:
+            pm.execute_plugin("workflow_engine", mode="check_time_triggers")
+        except Exception as e:
+            print(f"[Scheduler] Error: {e}")
+        time_module.sleep(30)
+
 
 def jalankan_server_neira():
     server_address = ('', 5000)
     httpd = ThreadingHTTPServer(server_address, NeiraServerHandler)
+
+    scheduler_thread = threading.Thread(target=_workflow_scheduler_loop, daemon=True)
+    scheduler_thread.start()
+
     print("🌍 Neira Premium Server Sync running on http://localhost:5000")
-    # Biarkan server berjalan melayani frontend via localhost:5000
     httpd.serve_forever()

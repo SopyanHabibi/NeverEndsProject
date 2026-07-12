@@ -38,6 +38,7 @@
         <main class="main-content">
             <header class="header">
                 <button class="menu-btn" id="menuBtn">☰</button>
+                <button class="menu-btn" id="workflowBtn" title="Workflow"><i class="fa-solid fa-diagram-project"></i></button>
                 <div class="status-indicator">
                     <span class="status-dot"></span> Online
                 </div>
@@ -79,6 +80,34 @@
             <div class="modal-buttons">
                 <button id="codeQuestionCancel" class="btn-cancel">Cancel</button>
                 <button id="codeQuestionSubmit" class="btn-submit">Ask Neira</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="workflowModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-form-side" style="width:100%;">
+            <p>Workflows</p>
+
+            <div id="workflowList" class="workflow-list">
+                <!-- diisi JS: daftar workflow yang udah ada -->
+            </div>
+
+            <hr style="border-color:#2a2e3f; margin:16px 0;">
+
+            <p>Buat Workflow Baru</p>
+            <input type="text" id="workflowNameInput" autocomplete="off" placeholder="Nama workflow...">
+            <input type="time" id="workflowTimeInput" style="margin-top:8px;">
+            <select id="workflowActionSelect" style="margin-top:8px; width:100%;">
+                <option value="">-- Pilih Action --</option>
+                <option value="tasks">Rekap Tasks</option>
+                <option value="auto_remember">Auto Remember</option>
+            </select>
+
+            <div class="modal-buttons">
+                <button id="workflowCancel" class="btn-cancel">Tutup</button>
+                <button id="workflowSubmit" class="btn-submit">Simpan Workflow</button>
             </div>
         </div>
     </div>
