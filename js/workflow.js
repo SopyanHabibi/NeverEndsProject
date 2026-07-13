@@ -109,3 +109,148 @@ async function deleteWorkflow(id) {
         showMiniAlert('Gagal menghapus workflow');
     }
 }
+
+let lastKnownRuns = {}; // { workflow_id: last_run_value }
+let pollingStarted = false;
+
+export function startWorkflowExecutionWatcher() {
+    if (pollingStarted) return; // cegah double-start
+    pollingStarted = true;
+
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/workflows');
+            const data = await res.json();
+
+            data.forEach(wf => {
+                const prevRun = lastKnownRuns[wf.id];
+
+                // Baru pertama kali kita lihat workflow ini -> simpan aja, jangan notif
+                if (prevRun === undefined) {
+                    lastKnownRuns[wf.id] = wf.last_run;
+                    return;
+                }
+
+                // last_run berubah (dan bukan null) -> berarti baru saja dieksekusi
+                if (wf.last_run && wf.last_run !== prevRun) {
+                    showMiniAlert(`✅ Workflow "${wf.nama}" berhasil dijalankan`);
+                    lastKnownRuns[wf.id] = wf.last_run;
+
+                    // Refresh list di modal juga kalau lagi kebuka
+                    const modal = document.getElementById('workflowModal');
+                    if (modal && modal.classList.contains('active')) {
+                        loadWorkflowList();
+                    }
+                }
+            });
+        } catch (e) { /* diamkan, jangan ganggu UX kalau server sempat gak respon */ }
+    }, 10000); // cek tiap 10 detik
+}
+
+// ===== CUSTOM TIME PICKER =====
+let selectedHour = null;
+let selectedMinute = null;
+
+export function initCustomTimePicker() {
+    const wrapper = document.getElementById('customTimePicker');
+    const dropdown = document.getElementById('timePickerDropdown');
+    const display = document.getElementById('workflowTimeDisplay');
+    const hourCol = document.getElementById('hourCol');
+    const minuteCol = document.getElementById('minuteCol');
+
+    if (!wrapper || hourCol.dataset.built) return; // cegah re-init
+    hourCol.dataset.built = "true";
+
+    for (let h = 0; h < 24; h++) {
+        const el = document.createElement('div');
+        el.className = 'time-picker-item';
+        el.textContent = String(h).padStart(2, '0');
+        el.addEventListener('click', () => {
+            selectedHour = String(h).padStart(2, '0');
+            updateTimeDisplay();
+            hourCol.querySelectorAll('.time-picker-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+        });
+        hourCol.appendChild(el);
+    }
+
+    for (let m = 0; m < 60; m += 5) {
+        const el = document.createElement('div');
+        el.className = 'time-picker-item';
+        el.textContent = String(m).padStart(2, '0');
+        el.addEventListener('click', () => {
+            selectedMinute = String(m).padStart(2, '0');
+            updateTimeDisplay();
+            minuteCol.querySelectorAll('.time-picker-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+        });
+        minuteCol.appendChild(el);
+    }
+
+    display.addEventListener('click', () => {
+        dropdown.classList.toggle('active');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) dropdown.classList.remove('active');
+    });
+}
+
+function updateTimeDisplay() {
+    const display = document.getElementById('workflowTimeDisplay');
+    if (selectedHour !== null && selectedMinute !== null) {
+        display.value = `${selectedHour}:${selectedMinute}`;
+    }
+}
+
+export function getSelectedTime() {
+    return (selectedHour !== null && selectedMinute !== null) ? `${selectedHour}:${selectedMinute}` : '';
+}
+
+export function resetTimePicker() {
+    selectedHour = null;
+    selectedMinute = null;
+    document.getElementById('workflowTimeDisplay').value = '';
+    document.querySelectorAll('.time-picker-item').forEach(i => i.classList.remove('active'));
+}
+
+// ===== CUSTOM SELECT (Action dropdown) =====
+let selectedAction = '';
+
+export function initCustomActionSelect() {
+    const trigger = document.getElementById('actionSelectTrigger');
+    const options = document.getElementById('actionSelectOptions');
+    const label = document.getElementById('actionSelectLabel');
+    const wrapper = document.getElementById('customActionSelect');
+
+    if (!trigger || trigger.dataset.built) return;
+    trigger.dataset.built = "true";
+
+    trigger.addEventListener('click', () => {
+        options.classList.toggle('active');
+    });
+
+    options.querySelectorAll('.custom-select-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            selectedAction = opt.dataset.value;
+            label.textContent = opt.textContent;
+            options.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('active'));
+            opt.classList.add('active');
+            options.classList.remove('active');
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) options.classList.remove('active');
+    });
+}
+
+export function getSelectedAction() {
+    return selectedAction;
+}
+
+export function resetActionSelect() {
+    selectedAction = '';
+    document.getElementById('actionSelectLabel').textContent = '-- Pilih Action --';
+    document.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('active'));
+}

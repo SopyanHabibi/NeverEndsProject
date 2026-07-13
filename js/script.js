@@ -4,7 +4,12 @@ import { loadSessions, currentSessionId, setSessionId, setIsFirstChat, switchSes
 import { kirimPesan, kirimPesanDenganTampilanCustom } from './chat.js';
 import { uploadDokumen, uploadGambar } from './upload.js';
 import { appendBubble } from './chat.js';
-import { loadWorkflowList, createWorkflow } from './workflow.js';
+import { 
+    loadWorkflowList, createWorkflow, startWorkflowExecutionWatcher,
+    initCustomTimePicker, initCustomActionSelect, getSelectedTime, getSelectedAction,
+    resetTimePicker, resetActionSelect
+} from './workflow.js';
+
 
 // --- FUNGSI GENERATOR GREETING DINAMIS (WAKTU + ACAK) ---
 function getDynamicWelcomeContent() {
@@ -132,6 +137,7 @@ function listenToLiveSession(sessionId) {
 document.addEventListener("DOMContentLoaded", () => {
     loadSessions();
     injectModalsAndToasts();
+    startWorkflowExecutionWatcher(); // Memulai watcher untuk eksekusi workflow
 
 
     // BARU: polling cek apakah ada sesi baru dari VS Code
@@ -209,6 +215,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modal) {
             modal.classList.add('active');
             loadWorkflowList();
+            initCustomTimePicker();
+            initCustomActionSelect();
         }
     });
 
@@ -219,14 +227,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     safeAddListener('workflowSubmit', 'click', async () => {
         const nama = document.getElementById('workflowNameInput').value.trim();
-        const waktu = document.getElementById('workflowTimeInput').value;
-        const action = document.getElementById('workflowActionSelect').value;
+        const waktu = getSelectedTime();
+        const action = getSelectedAction();
 
         const berhasil = await createWorkflow(nama, waktu, action);
         if (berhasil) {
             document.getElementById('workflowNameInput').value = '';
-            document.getElementById('workflowTimeInput').value = '';
-            document.getElementById('workflowActionSelect').value = '';
+            resetTimePicker();
+            resetActionSelect();
         }
     });
 

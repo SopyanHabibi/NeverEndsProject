@@ -86,24 +86,41 @@
 </div>
 
 <div id="workflowModal" class="modal-overlay">
-    <div class="modal-box">
-        <div class="modal-form-side" style="width:100%;">
-            <p>Workflows</p>
-
+    <div class="modal-box workflow-modal-box">
+        <div class="workflow-col workflow-col-list">
+            <p class="workflow-col-title">Workflows</p>
             <div id="workflowList" class="workflow-list">
-                <!-- diisi JS: daftar workflow yang udah ada -->
+                <!-- diisi JS -->
+            </div>
+        </div>
+
+        <div class="workflow-col workflow-col-form">
+            <p class="workflow-col-title">Buat Workflow Baru</p>
+            <input type="text" id="workflowNameInput" autocomplete="off" placeholder="Nama workflow...">
+
+            <!-- Custom time picker -->
+            <div class="custom-time-picker" id="customTimePicker">
+                <input type="text" id="workflowTimeDisplay" readonly placeholder="Pilih jam...">
+                <i class="fa-regular fa-clock"></i>
+                <div class="time-picker-dropdown" id="timePickerDropdown">
+                    <div class="time-picker-col" id="hourCol"></div>
+                    <div class="time-picker-separator">:</div>
+                    <div class="time-picker-col" id="minuteCol"></div>
+                </div>
             </div>
 
-            <hr style="border-color:#2a2e3f; margin:16px 0;">
-
-            <p>Buat Workflow Baru</p>
-            <input type="text" id="workflowNameInput" autocomplete="off" placeholder="Nama workflow...">
-            <input type="time" id="workflowTimeInput" style="margin-top:8px;">
-            <select id="workflowActionSelect" style="margin-top:8px; width:100%;">
-                <option value="">-- Pilih Action --</option>
-                <option value="tasks">Rekap Tasks</option>
-                <option value="auto_remember">Auto Remember</option>
-            </select>
+            <!-- Custom select -->
+            <div class="custom-select" id="customActionSelect">
+                <div class="custom-select-trigger" id="actionSelectTrigger">
+                    <span id="actionSelectLabel">-- Pilih Action --</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+                <div class="custom-select-options" id="actionSelectOptions">
+                    <div class="custom-select-option" data-value="">-- Pilih Action --</div>
+                    <div class="custom-select-option" data-value="tasks">Rekap Tasks</div>
+                    <div class="custom-select-option" data-value="auto_remember">Auto Remember</div>
+                </div>
+            </div>
 
             <div class="modal-buttons">
                 <button id="workflowCancel" class="btn-cancel">Tutup</button>
