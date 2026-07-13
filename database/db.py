@@ -91,6 +91,19 @@ def inisialisasi_db():
             teks_gambar TEXT NOT NULL
         )
     ''')
+    # 9. TABEL BARU: Workflow automation (trigger + actions)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS workflows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nama TEXT NOT NULL,
+            trigger_type TEXT NOT NULL,
+            trigger_config TEXT NOT NULL,
+            actions TEXT NOT NULL,
+            enabled INTEGER DEFAULT 1,
+            dibuat_pada DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_run DATETIME
+        )
+    ''')
 
     conn.commit()
     conn.close()
@@ -459,6 +472,82 @@ def ambil_semua_sesi_by_kategori(kategori='general') -> list:
     baris = cursor.fetchall()
     conn.close()
     return [{"session_id": b[0], "judul": b[1], "nama_project": b[2]} for b in baris]
+
+
+# ==================== FITUR WORKFLOW AUTOMATION ====================
+
+def tambah_workflow(nama: str, trigger_type: str, trigger_config: str, actions: str) -> int:
+    """trigger_config dan actions dikirim sebagai JSON string (json.dumps di pemanggil)."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO workflows (nama, trigger_type, trigger_config, actions) VALUES (?, ?, ?, ?)",
+        (nama, trigger_type, trigger_config, actions)
+    )
+    id_baru = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return id_baru
+
+def ambil_semua_workflow() -> list:
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, nama, trigger_type, trigger_config, actions, enabled, last_run FROM workflows ORDER BY id DESC")
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"id": b[0], "nama": b[1], "trigger_type": b[2], "trigger_config": b[3],
+              "actions": b[4], "enabled": b[5], "last_run": b[6]} for b in baris]
+
+def ambil_workflow_aktif_by_type(trigger_type: str) -> list:
+    """Dipakai scheduler checker — cuma ambil yang enabled=1 sesuai tipe trigger tertentu."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, nama, trigger_config, actions, last_run FROM workflows WHERE trigger_type = ? AND enabled = 1",
+        (trigger_type,)
+    )
+    baris = cursor.fetchall()
+    conn.close()
+    return [{"id": b[0], "nama": b[1], "trigger_config": b[2], "actions": b[3], "last_run": b[4]} for b in baris]
+
+def update_status_workflow(id_workflow: int, enabled: bool) -> bool:
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    berhasil = False
+    try:
+        cursor.execute("UPDATE workflows SET enabled = ? WHERE id = ?", (1 if enabled else 0, id_workflow))
+        berhasil = cursor.rowcount > 0
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal update status workflow: {e}")
+    finally:
+        conn.close()
+    return berhasil
+
+def update_last_run_workflow(id_workflow: int, waktu_iso: str):
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE workflows SET last_run = ? WHERE id = ?", (waktu_iso, id_workflow))
+    conn.commit()
+    conn.close()
+
+def hapus_workflow(id_workflow: int) -> bool:
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    berhasil = False
+    try:
+        cursor.execute("DELETE FROM workflows WHERE id = ?", (id_workflow,))
+        berhasil = cursor.rowcount > 0
+        conn.commit()
+    except Exception as e:
+        print(f"Gagal menghapus workflow: {e}")
+    finally:
+        conn.close()
+    return berhasil
+
+
+
+
 
 
 

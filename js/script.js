@@ -4,6 +4,12 @@ import { loadSessions, currentSessionId, setSessionId, setIsFirstChat, switchSes
 import { kirimPesan, kirimPesanDenganTampilanCustom } from './chat.js';
 import { uploadDokumen, uploadGambar } from './upload.js';
 import { appendBubble } from './chat.js';
+import { 
+    loadWorkflowList, createWorkflow, startWorkflowExecutionWatcher,
+    initCustomTimePicker, initCustomActionSelect, getSelectedTime, getSelectedAction,
+    resetTimePicker, resetActionSelect
+} from './workflow.js';
+
 
 // --- FUNGSI GENERATOR GREETING DINAMIS (WAKTU + ACAK) ---
 function getDynamicWelcomeContent() {
@@ -131,6 +137,7 @@ function listenToLiveSession(sessionId) {
 document.addEventListener("DOMContentLoaded", () => {
     loadSessions();
     injectModalsAndToasts();
+    startWorkflowExecutionWatcher(); // Memulai watcher untuk eksekusi workflow
 
 
     // BARU: polling cek apakah ada sesi baru dari VS Code
@@ -200,6 +207,34 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("Sidebar status collapsed:", sidebar.classList.contains('collapsed')); // Untuk debugging di console browser
         } else {
             console.error("Kritis: Elemen dengan id='sidebar' tidak ditemukan di HTML!");
+        }
+    });
+
+    safeAddListener('workflowBtn', 'click', () => {
+        const modal = document.getElementById('workflowModal');
+        if (modal) {
+            modal.classList.add('active');
+            loadWorkflowList();
+            initCustomTimePicker();
+            initCustomActionSelect();
+        }
+    });
+
+    safeAddListener('workflowCancel', 'click', () => {
+        const modal = document.getElementById('workflowModal');
+        if (modal) modal.classList.remove('active');
+    });
+
+    safeAddListener('workflowSubmit', 'click', async () => {
+        const nama = document.getElementById('workflowNameInput').value.trim();
+        const waktu = getSelectedTime();
+        const action = getSelectedAction();
+
+        const berhasil = await createWorkflow(nama, waktu, action);
+        if (berhasil) {
+            document.getElementById('workflowNameInput').value = '';
+            resetTimePicker();
+            resetActionSelect();
         }
     });
 

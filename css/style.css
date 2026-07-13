@@ -12,6 +12,7 @@
     --accent-yellow: #fcee0a;    /* Kuning Stabilo/Neon khas logo Cyberpunk & jacket David */
     --accent-cyan: #00f0ff;      /* Cyan/Aqua neon elektrik khas sirkuit dan UI Sandevistan */
     --accent-magenta: #ff0055;   /* Merah/Pink magenta tajam untuk alert & bahaya (ala Lucy/Cyberpsychosis) */
+    --accent-pink: #ff2c79;      /* Pink lembut untuk highlight teks & tombol sekunder */
     
     /* Gradients & Components */
     --gradient-accent: linear-gradient(135deg, var(--accent-yellow), #ff9900); /* Gradasi kuning ke oranye neon */
@@ -677,7 +678,7 @@ body {
     background: var(--bg-base);
     border: 1px solid var(--bg-surface-2);
     border-radius: 8px;
-    color: var(--accent-pink); /* Warna ketikan teks */
+    color: var(--accent-magenta); /* Warna ketikan teks */
     box-sizing: border-box;
     margin-bottom: 20px;
     outline: none;
@@ -760,7 +761,7 @@ body {
 /* Mengubah warna highlight/blok teks default menjadi khas Tokyo Night */
 .history-rename-input::selection {
     background: var(--bg-surface-2);
-    color: var(--accent-pink);
+    color: var(--accent-magenta);
 }
 
 
@@ -768,36 +769,35 @@ body {
    MINI ALERT TOAST (TOKYO NIGHT STYLE)
    ========================================== */
 .toast-container {
-    position: absolute;
-    bottom: 100%; 
+    position: fixed;
+    bottom: 100px;
     left: 50%;
-    transform: translate(-50%, 15px); 
-    background: #1c1c24; 
+    transform: translate(-50%, 15px);
+    background: #1c1c24;
     color: var(--text-primary);
-    border: 1px solid var(--accent-pink); 
+    border: 1px solid var(--accent-magenta);
     padding: 10px 16px;
     border-radius: 10px;
     font-size: 0.88rem;
     font-weight: 500;
-    white-space: nowrap; 
+    white-space: nowrap;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1); 
-    z-index: 999;
-    display: flex; /* Gunakan flex agar icon dan tulisan berjejer rapi */
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+    z-index: 99999;
+    display: flex;
     align-items: center;
 }
 
 .toast-container.show {
     opacity: 1;
-    transform: translate(-50%, -10px); /* Bergerak mulus naik ke atas wrapper */
+    transform: translate(-50%, -10px);
     pointer-events: auto;
 }
 
-/* Icon warning kecil di dalam toast */
 .toast-container i {
-    color: var(--accent-pink);
+    color: var(--accent-magenta);
     margin-right: 8px;
 }
 
@@ -908,7 +908,462 @@ code.inline-code {
     padding: 0 2px;
 }
 
-/* Responsive: Jika dibuka di HP biar numpuk vertikal */
+/* ============================================================
+   WORKFLOW AUTOMATION — MODAL
+   ============================================================ */
+
+/* Container utama: 2 kolom (list kiri, form kanan) */
+.workflow-modal-box {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    width: 90%;
+    max-width: 860px;
+    height: auto;
+    max-height: 78vh;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 16px;
+}
+
+.workflow-col {
+    display: flex;
+    flex-direction: column;
+    padding: 32px 28px;
+    min-height: 0; /* penting biar flex child bisa scroll, bukan overflow parent */
+}
+
+.workflow-col-list {
+    flex: 1.15;
+    background: linear-gradient(180deg, #15161f 0%, #121319 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.workflow-col-form {
+    flex: 0.85;
+    background: #1a1b26;
+}
+
+.workflow-col-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #7c7f93;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.workflow-col-title::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-pink, #6c5ce7);
+    box-shadow: 0 0 8px var(--accent-pink, #6c5ce7);
+}
+
+/* ---------- List workflow (kolom kiri) ---------- */
+.workflow-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.workflow-list::-webkit-scrollbar {
+    width: 5px;
+}
+.workflow-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.workflow-item {
+    position: relative;
+    padding: 16px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #1e2030, #191a26);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.workflow-item:hover {
+    transform: translateY(-2px);
+    border-color: rgba(108, 92, 231, 0.35);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(108, 92, 231, 0.15);
+}
+
+.workflow-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.workflow-item-info strong {
+    font-size: 15px;
+    font-weight: 600;
+    color: #f0f1f5;
+    letter-spacing: -0.01em;
+}
+
+.workflow-item-info span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6f7285;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.workflow-item-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.no-data-placeholder {
+    color: #575a6e;
+    font-size: 13px;
+    text-align: center;
+    padding: 32px 0;
+}
+
+/* Toggle switch pill (ganti checkbox bawaan) */
+.workflow-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 38px;
+    height: 22px;
+    border-radius: 999px;
+    background: #2a2c3d;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    position: relative;
+    margin: 0;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
+}
+
+.workflow-toggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #8a8d9e;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s ease;
+}
+
+.workflow-toggle:checked {
+    background: var(--accent-pink, #6c5ce7);
+    border-color: var(--accent-pink, #6c5ce7);
+}
+
+.workflow-toggle:checked::after {
+    transform: translateX(16px);
+    background: #ffffff;
+}
+
+.workflow-delete-btn {
+    background: rgba(224, 108, 117, 0.1);
+    border: none;
+    color: #e06c75;
+    cursor: pointer;
+    font-size: 13px;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.workflow-delete-btn:hover {
+    background: rgba(224, 108, 117, 0.2);
+    transform: scale(1.05);
+}
+
+/* ---------- Form buat workflow baru (kolom kanan) ---------- */
+.workflow-col-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.workflow-col-form input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    background: #14151e;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    color: #e4e6eb;
+    padding: 13px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    outline: none;
+    margin-bottom: 16px;
+    font-family: inherit;
+    flex-shrink: 0;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.workflow-col-form input[type="text"]::placeholder {
+    color: #575a6e;
+}
+
+.workflow-col-form input[type="text"]:focus {
+    border-color: var(--accent-pink, #6c5ce7);
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+.workflow-col-form .modal-buttons {
+    margin-top: auto;
+    padding-top: 20px;
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+#workflowModal .btn-submit {
+    flex: 1;
+    background: linear-gradient(135deg, #7c6cf0, #6c5ce7);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#workflowModal .btn-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(108, 92, 231, 0.45);
+}
+
+#workflowModal .btn-cancel {
+    background: #23242f;
+    color: #9a9db0;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+#workflowModal .btn-cancel:hover {
+    background: #2a2c3a;
+}
+
+/* ---------- Custom Time Picker ---------- */
+.custom-time-picker {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+    background: #14151e;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 0 14px;
+    height: 46px;
+    cursor: pointer;
+}
+
+.workflow-col-form .custom-time-picker input[type="text"] {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    outline: none;
+    box-shadow: none;
+    color: #e4e6eb;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.custom-time-picker i {
+    flex-shrink: 0;
+    color: #7c7f93;
+    pointer-events: none;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+}
+
+.time-picker-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #1e2030;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+    padding: 8px;
+    gap: 4px;
+}
+
+.time-picker-dropdown.active {
+    display: flex;
+}
+
+.time-picker-col {
+    flex: 1;
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.time-picker-col::-webkit-scrollbar {
+    width: 4px;
+}
+.time-picker-col::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.time-picker-separator {
+    display: flex;
+    align-items: center;
+    color: #6f7285;
+    font-weight: 600;
+    padding: 0 4px;
+}
+
+.time-picker-item {
+    padding: 8px 0;
+    text-align: center;
+    border-radius: 6px;
+    color: #c5c8d3;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.time-picker-item:hover {
+    background: rgba(108, 92, 231, 0.15);
+}
+
+.time-picker-item.active {
+    background: var(--accent-pink, #6c5ce7);
+    color: white;
+    font-weight: 600;
+}
+
+/* ---------- Custom Select (Action dropdown) ---------- */
+.custom-select {
+    position: relative;
+    margin-bottom: 24px;
+    flex-shrink: 0;
+}
+
+.custom-select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #14151e;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    color: #e4e6eb;
+    padding: 13px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+.custom-select-trigger:hover {
+    border-color: rgba(108, 92, 231, 0.4);
+}
+
+.custom-select-trigger i {
+    font-size: 11px;
+    color: #7c7f93;
+    transition: transform 0.15s ease;
+}
+
+.custom-select.open .custom-select-trigger i {
+    transform: rotate(180deg);
+}
+
+.custom-select-options {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #1e2030;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+    padding: 6px;
+    overflow: hidden;
+}
+
+.custom-select-options.active {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: #c5c8d3;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.custom-select-option:hover {
+    background: rgba(108, 92, 231, 0.15);
+}
+
+.custom-select-option.active {
+    background: var(--accent-pink, #6c5ce7);
+    color: white;
+    font-weight: 500;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+    .workflow-modal-box {
+        flex-direction: column;
+        max-height: 90vh;
+    }
+    .workflow-col-list {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        max-height: 45vh;
+    }
+}
+
+/* ---------- Responsive: modal lain (upload/vscode) di HP ---------- */
 @media (max-width: 600px) {
     .modal-box {
         flex-direction: column;

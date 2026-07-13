@@ -38,7 +38,7 @@ export function injectModalsAndToasts() {
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <span id="toastMessage">This is a mini alert message.</span>
             </div>`;
-        inputWrapper.insertAdjacentHTML('afterbegin', toastHTML);
+        document.body.insertAdjacentHTML('beforeend', toastHTML); // <-- ganti dari inputWrapper ke document.body
     }
 }
 
