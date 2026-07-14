@@ -14,18 +14,29 @@ PENDING_TOOL_CALLS = {}
 
 # Label ramah manusia buat tiap tool, biar user paham apa yang mau dijalankan
 LABEL_TOOL = {
-    "buka_aplikasi": lambda a: f"Buka aplikasi '{a.get('nama_aplikasi', '?')}'",
-    "tambah_tugas": lambda a: f"Tambah tugas: '{a.get('deskripsi', '?')}'" + (f" (deadline: {a.get('deadline')})" if a.get('deadline') else ""),
-    "selesaikan_tugas": lambda a: f"Tandai tugas #{a.get('id_tugas', '?')} selesai",
-    "update_tugas": lambda a: f"Update tugas #{a.get('id_tugas', '?')}",
-    "tambah_jadwal": lambda a: f"Tambah jadwal: '{a.get('aktivitas', '?')}' pada {a.get('waktu', '?')}",
-    "lihat_tugas": lambda a: "Lihat daftar tugas",
-    "lihat_jadwal": lambda a: "Lihat jadwal",
-    "analisa_produktivitas": lambda a: f"Analisa produktivitas '{a.get('nama_aplikasi', '?')}'",
+    "buka_aplikasi": lambda a: f"Open {a.get('nama_aplikasi', 'this app')}?",
+    "tambah_tugas": lambda a: (
+        f"Add '{a.get('deskripsi', 'this task')}' to your tasks"
+        + (f", due {a.get('deadline')}?" if a.get('deadline') else "?")
+    ),
+    "selesaikan_tugas": lambda a: f"Mark task #{a.get('id_tugas', '?')} as done?",
+    "update_tugas": lambda a: f"Update task #{a.get('id_tugas', '?')}?",
+    "tambah_jadwal": lambda a: f"Schedule '{a.get('aktivitas', 'this')}' for {a.get('waktu', '?')}?",
+    "lihat_tugas": lambda a: "Show your tasks?",
+    "lihat_jadwal": lambda a: "Show your schedule?",
+    "analisa_produktivitas": lambda a: f"Analyze your '{a.get('nama_aplikasi', '?')}' productivity?",
 }
 
-# Tool read-only ini gak perlu konfirmasi — cuma nampilin data, gak ubah apapun
-TOOLS_AMAN_TANPA_KONFIRMASI = {"lihat_tugas", "lihat_jadwal", "analisa_produktivitas"}
+
+# Tool yang boleh auto-execute tanpa nunggu konfirmasi —
+# aksi non-destruktif: nambah data baru, atau read-only
+TOOLS_AMAN_TANPA_KONFIRMASI = {
+    "lihat_tugas", "lihat_jadwal", "analisa_produktivitas",
+    "tambah_tugas", "tambah_jadwal", "buka_aplikasi"
+}
+
+# Cuma aksi yang bisa NGERUSAK/NGUBAH data yang ada, yang tetap butuh konfirmasi
+# (selesaikan_tugas, update_tugas otomatis masuk sini karena gak ada di set atas)
 
 
 system_prompt = (
@@ -250,10 +261,13 @@ def proses_perintah_backend(perintah, session_id):
         riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=8)
         messages_payload.extend(riwayat_chat_sqlite)
         
-        kwargs_ollama = {'model': 'qwen2.5:7b-instruct-q4_K_M', 'messages': messages_payload, 'stream': True}
-        if perlu_tool_check(perintah):
-            kwargs_ollama['tools'] = TOOLS_SCHEMA
-            kwargs_ollama['options'] = {'temperature': 0.1, 'num_predict': 300}
+        kwargs_ollama = {
+        'model': 'qwen2.5:7b-instruct-q4_K_M',
+        'messages': messages_payload,
+        'stream': True,
+        'tools': TOOLS_SCHEMA,
+        'options': {'temperature': 0.2, 'num_predict': 400}
+    }
             
         response = ollama.chat(**kwargs_ollama)
         tool_calls_terdeteksi = None

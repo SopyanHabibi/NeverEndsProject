@@ -205,13 +205,14 @@ export function appendBubble(text, isUser) {
 
 export function renderToolConfirmCard(textNode, daftarAksi, sessionId) {
     const listHtml = daftarAksi.map(a => `<li>${a.label}</li>`).join('');
+    const judul = daftarAksi.length > 1 ? "Here's what I'll do:" : "";
     textNode.innerHTML = `
         <div class="tool-confirm-card">
-            <p class="tool-confirm-title">🤖 Neira mau jalankan:</p>
+            ${judul ? `<p class="tool-confirm-title">${judul}</p>` : ''}
             <ul class="tool-confirm-list">${listHtml}</ul>
             <div class="tool-confirm-buttons">
-                <button class="tool-confirm-cancel">Batal</button>
-                <button class="tool-confirm-run">Jalankan</button>
+                <button class="tool-confirm-cancel">Cancel</button>
+                <button class="tool-confirm-run">Confirm</button>
             </div>
         </div>`;
 

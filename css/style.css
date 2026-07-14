@@ -1383,19 +1383,20 @@ code.inline-code {
     border-radius: 12px;
     padding: 16px;
     max-width: 360px;
+    margin: 0;
 }
 
 .tool-confirm-title {
     font-size: 13px;
     font-weight: 600;
     color: #e4e6eb;
-    margin-bottom: 8px;
+    margin: 0 0 10px 0;
 }
 
 .tool-confirm-list {
     list-style: none;
     padding: 0;
-    margin-bottom: 14px;
+    margin: 0 0 14px 0;
 }
 
 .tool-confirm-list li {
@@ -1403,6 +1404,7 @@ code.inline-code {
     color: #c5c8d3;
     padding: 6px 0;
     border-bottom: 1px solid rgba(255,255,255,0.05);
+    line-height: 1.5;
 }
 
 .tool-confirm-buttons {
