@@ -1376,3 +1376,57 @@ code.inline-code {
         max-height: 180px;
     }
 }
+
+.tool-confirm-card {
+    background: linear-gradient(145deg, #1e2030, #191a26);
+    border: 1px solid rgba(108, 92, 231, 0.3);
+    border-radius: 12px;
+    padding: 16px;
+    max-width: 360px;
+}
+
+.tool-confirm-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e4e6eb;
+    margin-bottom: 8px;
+}
+
+.tool-confirm-list {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 14px;
+}
+
+.tool-confirm-list li {
+    font-size: 13px;
+    color: #c5c8d3;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.tool-confirm-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.tool-confirm-cancel,
+.tool-confirm-run {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tool-confirm-cancel {
+    background: #23242f;
+    color: #9a9db0;
+}
+
+.tool-confirm-run {
+    background: linear-gradient(135deg, #7c6cf0, #6c5ce7);
+    color: white;
+}

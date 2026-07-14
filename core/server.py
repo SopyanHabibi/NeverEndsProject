@@ -112,6 +112,31 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                 print(f"Gagal ambil workflow: {e}")
                 self.wfile.write(json.dumps([]).encode('utf-8'))
             return
+        
+        elif parsed_url.path == '/api/tool-confirm-stream':
+            session_id_raw = query_params.get('session_id', [''])[0]
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('Connection', 'keep-alive')
+            self.end_headers()
+            try:
+                session_id = int(session_id_raw)
+                from core.llm_engine import eksekusi_tool_terkonfirmasi
+                generator = eksekusi_tool_terkonfirmasi(session_id)
+                for token in generator:
+                    if token:
+                        token_aman = token.replace("\n", "[NEWLINE]")
+                        payload = json.dumps({"text": token_aman})
+                        self.wfile.write(f"data: {payload}\n\n".encode('utf-8'))
+                        self.wfile.flush()
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
+            except Exception as e:
+                print(f"Error tool-confirm-stream: {e}")
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
+            return
             
         else:
             # Tetap layani asset statis (HTML/JS/CSS) jika diakses langsung lewat localhost:5000
@@ -231,6 +256,19 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                     json.dumps(data.get('actions'))
                 )
                 self.wfile.write(json.dumps({"status": "success", "id": id_baru}).encode('utf-8'))
+            except Exception as e:
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
+        
+        # 8. BATALKAN TOOL CALL YANG PENDING
+        elif self.path == '/api/tool-cancel':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            try:
+                from core.llm_engine import batalkan_tool_pending
+                batalkan_tool_pending(int(data.get('session_id')))
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
             except Exception as e:
                 self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
             return
