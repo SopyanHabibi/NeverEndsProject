@@ -37,6 +37,7 @@ The goal is to build the experience around them.
 * 🔍 Memory retrieval using keyword detection.
 * 📂 Basic Workspace Awareness
 * 🔌 Plugin System
+* ⚙️ Workflow Automation (Basic version)
 
 ---
 
@@ -51,7 +52,6 @@ The roadmap is constantly evolving, but currently includes:
 * 📱 Mobile Companion
 * 🧩 API Support
 * 🖥️ Cross-platform Desktop Build
-* ⚙️ Workflow Automation
 
 And many more ideas that haven't been written yet.
 
