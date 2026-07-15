@@ -4,7 +4,7 @@ from tools import monitor
 
 # 1. Kunci konfigurasi database paling awal sebelum modul lain meluncur
 DIR_NEIRA = os.path.dirname(os.path.abspath(__file__))
-PATH_DB_ABSOLUT = os.path.join(DIR_NEIRA, "neira_data.db")
+PATH_DB_ABSOLUT = os.path.join(DIR_NEIRA, "database", "neira_data.db")
 
 from database import db
 db.DB_FILE = PATH_DB_ABSOLUT
