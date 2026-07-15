@@ -8,6 +8,37 @@ from core.plugin_manager import PluginManager
 plugin_manager = PluginManager()
 plugin_manager.load_plugins()
 
+
+# Menyimpan tool call yang lagi nunggu konfirmasi user, per session_id
+PENDING_TOOL_CALLS = {}
+
+# Label ramah manusia buat tiap tool, biar user paham apa yang mau dijalankan
+LABEL_TOOL = {
+    "buka_aplikasi": lambda a: f"Open {a.get('nama_aplikasi', 'this app')}?",
+    "tambah_tugas": lambda a: (
+        f"Add '{a.get('deskripsi', 'this task')}' to your tasks"
+        + (f", due {a.get('deadline')}?" if a.get('deadline') else "?")
+    ),
+    "selesaikan_tugas": lambda a: f"Mark task #{a.get('id_tugas', '?')} as done?",
+    "update_tugas": lambda a: f"Update task #{a.get('id_tugas', '?')}?",
+    "tambah_jadwal": lambda a: f"Schedule '{a.get('aktivitas', 'this')}' for {a.get('waktu', '?')}?",
+    "lihat_tugas": lambda a: "Show your tasks?",
+    "lihat_jadwal": lambda a: "Show your schedule?",
+    "analisa_produktivitas": lambda a: f"Analyze your '{a.get('nama_aplikasi', '?')}' productivity?",
+}
+
+
+# Tool yang boleh auto-execute tanpa nunggu konfirmasi —
+# aksi non-destruktif: nambah data baru, atau read-only
+TOOLS_AMAN_TANPA_KONFIRMASI = {
+    "lihat_tugas", "lihat_jadwal", "analisa_produktivitas",
+    "tambah_tugas", "tambah_jadwal", "buka_aplikasi"
+}
+
+# Cuma aksi yang bisa NGERUSAK/NGUBAH data yang ada, yang tetap butuh konfirmasi
+# (selesaikan_tugas, update_tugas otomatis masuk sini karena gak ada di set atas)
+
+
 system_prompt = (
     "You are Neira, Ian's chill, brilliant, and tech-savvy personal AI assistant. "
     "You're a total expert in IT, cybersecurity, and networking. Keep the vibe casual, "
@@ -230,10 +261,13 @@ def proses_perintah_backend(perintah, session_id):
         riwayat_chat_sqlite = db.ambil_riwayat_terakhir(session_id, limit=8)
         messages_payload.extend(riwayat_chat_sqlite)
         
-        kwargs_ollama = {'model': 'qwen2.5:7b-instruct-q4_K_M', 'messages': messages_payload, 'stream': True}
-        if perlu_tool_check(perintah):
-            kwargs_ollama['tools'] = TOOLS_SCHEMA
-            kwargs_ollama['options'] = {'temperature': 0.1, 'num_predict': 300}
+        kwargs_ollama = {
+        'model': 'qwen2.5:7b-instruct-q4_K_M',
+        'messages': messages_payload,
+        'stream': True,
+        'tools': TOOLS_SCHEMA,
+        'options': {'temperature': 0.2, 'num_predict': 400}
+    }
             
         response = ollama.chat(**kwargs_ollama)
         tool_calls_terdeteksi = None
@@ -249,42 +283,99 @@ def proses_perintah_backend(perintah, session_id):
                 yield token
 
         if tool_calls_terdeteksi:
-            messages_payload.append({
-                'role': 'assistant',
-                'content': respons_lengkap_neira,
-                'tool_calls': tool_calls_terdeteksi
-            })
+            # Pisahkan mana yang butuh konfirmasi (destructive/write) vs yang aman (read-only)
+            perlu_konfirmasi = [p for p in tool_calls_terdeteksi if p['function']['name'] not in TOOLS_AMAN_TANPA_KONFIRMASI]
 
-            for panggilan in tool_calls_terdeteksi:
-                nama_fungsi = panggilan['function']['name']
-                args_fungsi = panggilan['function'].get('arguments', {})
-                fungsi = FUNCTION_MAP.get(nama_fungsi)
-                hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
-                
+            if perlu_konfirmasi:
+                # Simpan state, JANGAN eksekusi dulu — tunggu user konfirmasi
                 messages_payload.append({
-                    'role': 'tool',
-                    'content': str(hasil_eksekusi),
-                    'name': nama_fungsi
+                    'role': 'assistant',
+                    'content': respons_lengkap_neira,
+                    'tool_calls': tool_calls_terdeteksi
                 })
-            
-            second_response = ollama.chat(
-                model='qwen2.5:7b-instruct-q4_K_M',
-                messages=messages_payload,
-                stream=True
-            )
-            
-            respons_lengkap_neira = "" 
-            for chunk in second_response:
-                token = chunk.get('message', {}).get('content', '')
-                respons_lengkap_neira += token
-                if token:
-                    yield token
+                PENDING_TOOL_CALLS[session_id] = {
+                    'messages_payload': messages_payload,
+                    'tool_calls': tool_calls_terdeteksi
+                }
+
+                daftar_aksi = [
+                    {
+                        'nama_fungsi': p['function']['name'],
+                        'label': LABEL_TOOL.get(p['function']['name'], lambda a: p['function']['name'])(p['function'].get('arguments', {}))
+                    }
+                    for p in tool_calls_terdeteksi
+                ]
+                payload_konfirmasi = json.dumps(daftar_aksi)
+                yield f"[TOOL_CONFIRM_REQUIRED:{payload_konfirmasi}]"
+
+                db.simpan_chat(session_id, "assistant", respons_lengkap_neira or "(menunggu konfirmasi aksi)")
+                return  # STOP di sini, jangan lanjut ke second_response
+
+            else:
+                # Semua tool call read-only, aman dieksekusi langsung tanpa konfirmasi
+                messages_payload.append({
+                    'role': 'assistant',
+                    'content': respons_lengkap_neira,
+                    'tool_calls': tool_calls_terdeteksi
+                })
+                for panggilan in tool_calls_terdeteksi:
+                    nama_fungsi = panggilan['function']['name']
+                    args_fungsi = panggilan['function'].get('arguments', {})
+                    fungsi = FUNCTION_MAP.get(nama_fungsi)
+                    hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
+                    messages_payload.append({'role': 'tool', 'content': str(hasil_eksekusi), 'name': nama_fungsi})
+
+                second_response = ollama.chat(model='qwen2.5:7b-instruct-q4_K_M', messages=messages_payload, stream=True)
+                respons_lengkap_neira = ""
+                for chunk in second_response:
+                    token = chunk.get('message', {}).get('content', '')
+                    respons_lengkap_neira += token
+                    if token:
+                        yield token
 
         db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
-        
-        # Panggil plugin auto_remember biar Neira nyimpen fakta baru tentang Ian ke tabel profil
         plugin_manager.execute_plugin("auto_remember", perintah, respons_lengkap_neira)
         
     except Exception as e:
         print(f"Crash pada proses perintah: {e}")
         yield f"⚠️ Backend system error: {e}"
+
+
+def eksekusi_tool_terkonfirmasi(session_id):
+    """Dipanggil setelah user klik 'Jalankan' — eksekusi tool yang tadi ditunda, lanjut generate respons final."""
+    try:
+        pending = PENDING_TOOL_CALLS.pop(session_id, None)
+        if not pending:
+            yield "⚠️ Gak ada aksi yang lagi ditunda untuk sesi ini."
+            return
+
+        messages_payload = pending['messages_payload']
+        tool_calls = pending['tool_calls']
+
+        for panggilan in tool_calls:
+            nama_fungsi = panggilan['function']['name']
+            args_fungsi = panggilan['function'].get('arguments', {})
+            fungsi = FUNCTION_MAP.get(nama_fungsi)
+            hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
+            messages_payload.append({'role': 'tool', 'content': str(hasil_eksekusi), 'name': nama_fungsi})
+
+        second_response = ollama.chat(model='qwen2.5:7b-instruct-q4_K_M', messages=messages_payload, stream=True)
+        respons_lengkap_neira = ""
+        for chunk in second_response:
+            token = chunk.get('message', {}).get('content', '')
+            respons_lengkap_neira += token
+            if token:
+                yield token
+
+        db.simpan_chat(session_id, "assistant", respons_lengkap_neira)
+        plugin_manager.execute_plugin("auto_remember", "", respons_lengkap_neira)
+
+    except Exception as e:
+        print(f"Crash saat eksekusi tool terkonfirmasi: {e}")
+        yield f"⚠️ Gagal eksekusi aksi: {e}"
+
+
+def batalkan_tool_pending(session_id):
+    """Dipanggil kalau user klik 'Batal'."""
+    PENDING_TOOL_CALLS.pop(session_id, None)
+    db.simpan_chat(session_id, "assistant", "(Aksi dibatalkan oleh Ian)")
