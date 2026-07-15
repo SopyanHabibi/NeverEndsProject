@@ -39,6 +39,27 @@ export async function kirimPesanDenganTampilanCustom(displayHtml, actualPrompt) 
             return;
         }
 
+        // Deteksi sinyal minta konfirmasi tool (parse JSON envelope dulu)
+        let kemungkinanTeks = "";
+        try {
+            const dataObjCek = JSON.parse(event.data);
+            kemungkinanTeks = dataObjCek.text || "";
+        } catch (e) {
+            kemungkinanTeks = "";
+        }
+
+        if (kemungkinanTeks.startsWith("[TOOL_CONFIRM_REQUIRED:")) {
+            const jsonStr = kemungkinanTeks.slice("[TOOL_CONFIRM_REQUIRED:".length, -1);
+            try {
+                const daftarAksi = JSON.parse(jsonStr);
+                renderToolConfirmCard(textNode, daftarAksi, currentSessionId);
+            } catch (e) {
+                textNode.innerHTML = "⚠️ Gagal membaca permintaan konfirmasi.";
+            }
+            eventSource.close();
+            return;
+        }
+
         if (event.data === "[DONE]") {
             eventSource.close();
             setIsFirstChat(false);
@@ -101,6 +122,27 @@ export async function kirimPesanDenganTeks(text) {
             return;
         }
 
+        // Deteksi sinyal minta konfirmasi tool (parse JSON envelope dulu)
+        let kemungkinanTeks = "";
+        try {
+            const dataObjCek = JSON.parse(event.data);
+            kemungkinanTeks = dataObjCek.text || "";
+        } catch (e) {
+            kemungkinanTeks = "";
+        }
+
+        if (kemungkinanTeks.startsWith("[TOOL_CONFIRM_REQUIRED:")) {
+            const jsonStr = kemungkinanTeks.slice("[TOOL_CONFIRM_REQUIRED:".length, -1);
+            try {
+                const daftarAksi = JSON.parse(jsonStr);
+                renderToolConfirmCard(textNode, daftarAksi, currentSessionId);
+            } catch (e) {
+                textNode.innerHTML = "⚠️ Gagal membaca permintaan konfirmasi.";
+            }
+            eventSource.close();
+            return;
+        }
+
         if (event.data === "[DONE]") {
             eventSource.close();
             setIsFirstChat(false);
@@ -159,4 +201,52 @@ export function appendBubble(text, isUser) {
     container.appendChild(row);
     container.scrollTop = container.scrollHeight;
     return row;
+}
+
+export function renderToolConfirmCard(textNode, daftarAksi, sessionId) {
+    const listHtml = daftarAksi.map(a => `<li>${a.label}</li>`).join('');
+    const judul = daftarAksi.length > 1 ? "Here's what I'll do:" : "";
+    textNode.innerHTML = `
+        <div class="tool-confirm-card">
+            ${judul ? `<p class="tool-confirm-title">${judul}</p>` : ''}
+            <ul class="tool-confirm-list">${listHtml}</ul>
+            <div class="tool-confirm-buttons">
+                <button class="tool-confirm-cancel">Cancel</button>
+                <button class="tool-confirm-run">Confirm</button>
+            </div>
+        </div>`;
+
+    const cancelBtn = textNode.querySelector('.tool-confirm-cancel');
+    const runBtn = textNode.querySelector('.tool-confirm-run');
+
+    cancelBtn.addEventListener('click', async () => {
+        textNode.innerHTML = '<span class="thinking-dots">Membatalkan...</span>';
+        await fetch('/api/tool-cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId })
+        });
+        textNode.innerHTML = '<em>Aksi dibatalkan.</em>';
+    });
+
+    runBtn.addEventListener('click', () => {
+        textNode.innerHTML = '<span class="thinking-dots">Menjalankan...</span>';
+        const es = new EventSource(`/api/tool-confirm-stream?session_id=${sessionId}`);
+        let isFirst = true;
+        let acc = "";
+
+        es.onmessage = (event) => {
+            if (event.data === "[DONE]") {
+                es.close();
+                return;
+            }
+            if (isFirst) { textNode.innerHTML = ""; isFirst = false; }
+            try {
+                const obj = JSON.parse(event.data);
+                acc += (obj.text || '').replace(/\[NEWLINE\]/g, '\n');
+                textNode.innerHTML = acc;
+            } catch (e) {}
+        };
+        es.onerror = () => es.close();
+    });
 }
