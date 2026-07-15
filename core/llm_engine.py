@@ -206,6 +206,28 @@ def perlu_tool_check(teks: str) -> bool:
     ]
     return any(kata in teks_lower for kata in kata_kunci)
 
+def generate_judul_sesi(pesan_user, jawaban_ai=""):
+    """Generate a short, natural title from the conversation context (in English)."""
+    try:
+        prompt = f"""Create ONE short title (max 5 words, no quotes, no trailing period) that reflects the topic of this conversation. Do not copy the user's message verbatim. Respond in English only.
+
+User message: {pesan_user}
+AI response: {jawaban_ai[:300]}
+
+Title:"""
+        response = ollama.chat(
+            model='qwen2.5:7b-instruct-q4_K_M',
+            messages=[{"role": "user", "content": prompt}],
+            stream=False
+        )
+        judul = response['message']['content'].strip().strip('"').strip("'")
+        if not judul or len(judul) > 60:
+            judul = pesan_user[:20]
+        return judul
+    except Exception as e:
+        print(f"[Judul Generator] Gagal generate judul: {e}")
+        return pesan_user[:20]
+
 def proses_perintah_backend(perintah, session_id):
     """Menjaga urutan argumen asli (perintah, session_id)"""
     try:
