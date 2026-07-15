@@ -21,12 +21,15 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
             session_id_raw = query_params.get('session_id', [''])[0]
 
             if not session_id_raw or session_id_raw == 'null' or session_id_raw == 'undefined':
-                session_id = db.buat_sesi_baru(judul=pesan_user[:20])
+                session_id = db.buat_sesi_baru(judul="Chat Baru")
+                sesi_baru = True
             else:
                 try:
                     session_id = int(session_id_raw)
+                    sesi_baru = False
                 except:
-                    session_id = db.buat_sesi_baru(judul=pesan_user[:20])
+                    session_id = db.buat_sesi_baru(judul="Chat Baru")
+                    sesi_baru = True
 
             self.send_response(200)
             self.send_header('Content-Type', 'text/event-stream')
@@ -39,16 +42,26 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
             self.wfile.flush()
 
             try:
-                # Menggunakan urutan argument asli (pesan_user, session_id)
                 generator = proses_perintah_backend(pesan_user, session_id)
+                respons_lengkap = ""
                 for token in generator:
                     if token:
+                        respons_lengkap += token
                         token_aman = token.replace("\n", "[NEWLINE]")
                         payload = json.dumps({"text": token_aman})
                         self.wfile.write(f"data: {payload}\n\n".encode('utf-8'))
                         self.wfile.flush()
+
                 self.wfile.write(b"data: [DONE]\n\n")
                 self.wfile.flush()
+
+                if sesi_baru:
+                    def _generate_judul_background():
+                        from core.llm_engine import generate_judul_sesi
+                        judul_baru = generate_judul_sesi(pesan_user, respons_lengkap)
+                        db.ubah_judul_sesi(session_id, judul_baru)
+                    threading.Thread(target=_generate_judul_background, daemon=True).start()
+
             except Exception as e:
                 print(f"Error streaming: {e}")
                 try:

@@ -64,6 +64,7 @@ export async function kirimPesanDenganTampilanCustom(displayHtml, actualPrompt) 
             eventSource.close();
             setIsFirstChat(false);
             loadSessions();
+            setTimeout(loadSessions, 2500); // refresh susulan buat nangkep judul async
             if (window.Prism) {
                 textNode.querySelectorAll('code[class*="language-"]').forEach(el => {
                     Prism.highlightElement(el);
@@ -147,6 +148,7 @@ export async function kirimPesanDenganTeks(text) {
             eventSource.close();
             setIsFirstChat(false);
             loadSessions();
+            setTimeout(loadSessions, 2500); // refresh susulan buat nangkep judul async
             if (window.Prism) {
                 textNode.querySelectorAll('code[class*="language-"]').forEach(el => {
                     Prism.highlightElement(el);
