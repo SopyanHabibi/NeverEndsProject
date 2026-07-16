@@ -208,15 +208,31 @@ export function appendBubble(text, isUser) {
 export function renderToolConfirmCard(textNode, daftarAksi, sessionId) {
     const isWorkflow = daftarAksi.length === 1 && daftarAksi[0].type === 'workflow';
 
+    // AMBIL KONTEKS: Cari bubble chat terakhir milik user
+    const userBubbles = document.querySelectorAll('.user-bubble');
+    let userContextText = "";
+    if (userBubbles.length > 0) {
+        userContextText = userBubbles[userBubbles.length - 1].innerText.trim();
+    }
+
     if (isWorkflow) {
         const item = daftarAksi[0];
-        const stepsHtml = item.steps.map(s => `<li>${s}</li>`).join('');
+        let kalimatKonfirmasi = `Create a workflow for "${item.title || item.label || 'New Task'}"?`;
+        
+        if (userContextText) {
+            let cleanContext = userContextText
+                .replace(/^(tolong|bantu|buatkan|setup|create|please)\s+/i, '') 
+                .replace(/\?$/, '')
+                .replace(/\bme\b/gi, 'you')
+                .replace(/\bmy\b/gi, 'your');
+            
+            kalimatKonfirmasi = `Create workflow to ${cleanContext}?`;
+        }
+
+        // KITA HILANGKAN .tool-confirm-wrapper YANG TIDAK PERLU
         textNode.innerHTML = `
-            <div class="tool-confirm-card workflow-confirm-card">
-                <p class="tool-confirm-title">Execute Task</p>
-                <p class="tool-confirm-desc">${item.deskripsi}</p>
-                <p class="tool-confirm-subtitle">Estimated actions:</p>
-                <ul class="tool-confirm-list">${stepsHtml}</ul>
+            <div class="tool-confirm-card">
+                <p class="tool-confirm-desc">${kalimatKonfirmasi}</p>
                 <div class="tool-confirm-buttons">
                     <button class="tool-confirm-cancel">Cancel</button>
                     <button class="tool-confirm-run">Execute</button>
@@ -224,10 +240,10 @@ export function renderToolConfirmCard(textNode, daftarAksi, sessionId) {
             </div>`;
     } else {
         const listHtml = daftarAksi.map(a => `<li>${a.label}</li>`).join('');
-        const judul = daftarAksi.length > 1 ? "Here's what I'll do:" : "";
+        const judul = daftarAksi.length > 1 ? "Here's what I'll do:" : "Confirm action:";
         textNode.innerHTML = `
             <div class="tool-confirm-card">
-                ${judul ? `<p class="tool-confirm-title">${judul}</p>` : ''}
+                <p class="tool-confirm-title">${judul}</p>
                 <ul class="tool-confirm-list">${listHtml}</ul>
                 <div class="tool-confirm-buttons">
                     <button class="tool-confirm-cancel">Cancel</button>

@@ -1379,58 +1379,114 @@ code.inline-code {
     }
 }
 
+/* ============================================================
+   FIXED TOOL CONFIRMATION CARD (BALANCED & CONSISTENT)
+   ============================================================ */
+
+/* Menyelaraskan induk bubble agar lebarnya konsisten dengan bubble chat lainnya */
+.neira-text:has(.tool-confirm-card) {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  max-width: 80% !important; /* Disamakan dengan batas lebar bubble chat biasa */
+  width: 100% !important;
+}
+
+/* Card Konfirmasi Utama (Ukuran seimbang dengan bubble user) */
 .tool-confirm-card {
-    background: linear-gradient(145deg, #1e2030, #191a26);
-    border: 1px solid rgba(108, 92, 231, 0.3);
-    border-radius: 12px;
-    padding: 16px;
-    max-width: 360px;
-    margin: 0;
+  width: 100%;
+  max-width: 480px;            /* Diperlebar agar seimbang dengan bubble chat user */
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-surface-2); 
+  border-radius: 12px;
+  padding: 16px;               /* Padding dikembalikan ke ukuran ideal agar proporsional */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;                   /* Gap proporsional */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  margin-top: 4px;
+  box-sizing: border-box;
 }
 
+/* Deskripsi Workflow */
+.tool-confirm-desc {
+  font-size: 0.9rem !important; /* Sedikit naik agar nyaman dibaca di card yang lebih lebar */
+  color: var(--text-primary) !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;        
+  white-space: normal !important;
+  text-align: left !important;
+}
+
+/* Judul Aksi */
 .tool-confirm-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #e4e6eb;
-    margin: 0 0 10px 0;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  margin: 0 !important;
 }
 
+/* List Item Aksi di Dalam Card */
 .tool-confirm-list {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 14px 0;
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 8px 0;         
 }
 
 .tool-confirm-list li {
-    font-size: 13px;
-    color: #c5c8d3;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    line-height: 1.5;
+  font-size: 0.85rem !important;
+  color: var(--text-muted);
+  padding: 6px 0;              
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  line-height: 1.35;
 }
 
+.tool-confirm-list li:last-child {
+  border-bottom: none;
+}
+
+/* Tombol Aksi */
 .tool-confirm-buttons {
-    display: flex;
-    gap: 8px;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  margin-top: 6px !important;  
+  padding: 0 !important;
 }
 
 .tool-confirm-cancel,
 .tool-confirm-run {
-    flex: 1;
-    padding: 8px;
-    border-radius: 8px;
-    border: none;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
+  display: inline-block !important;
+  padding: 7px 16px !important; /* Sedikit diperlebar agar mantap saat di-klik */
+  border-radius: 8px !important;
+  font-size: 0.82rem !important; 
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  border: none !important;
+  transition: all 0.2s ease !important;
 }
 
 .tool-confirm-cancel {
-    background: #23242f;
-    color: #9a9db0;
+  background: var(--bg-surface-2) !important; 
+  color: var(--text-muted) !important;
+}
+
+.tool-confirm-cancel:hover {
+  background: #323846 !important;
+  color: var(--text-primary) !important;
 }
 
 .tool-confirm-run {
-    background: linear-gradient(135deg, #7c6cf0, #6c5ce7);
-    color: white;
+  background: rgba(0, 240, 255, 0.08) !important; 
+  color: var(--accent-cyan) !important;
+  border: 1px solid var(--accent-cyan) !important;
+}
+
+.tool-confirm-run:hover {
+  background: var(--accent-cyan) !important;
+  color: #000000 !important; 
+  box-shadow: 0 0 10px var(--accent-cyan) !important;
 }
