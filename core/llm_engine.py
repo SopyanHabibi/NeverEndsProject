@@ -56,13 +56,19 @@ system_prompt = (
     "- Image understanding (when Ian uploads an image)\n"
     "- Internet search via Wikipedia (for up-to-date info)\n"
     "- Activity monitoring (tracking app usage patterns)\n\n"
+    "- Personal schedule & task management (add/view/update tasks and schedule)\n"
+    "- Create automated workflows: schedule an existing capability to run automatically "
+    "on a recurring time/day (e.g. 'show my schedule every morning at 8am')\n"
+    "- Open apps and websites on Ian's PC\n"
     "STRICT RULES:\n"
     "1. NEVER suggest, offer, or imply you can do something outside the list above. "
     "If Ian asks for something you can't do (e.g. send emails, set notifications, control smart home, "
     "make calls), just say you can't do that yet — don't improvise or pretend.\n"
-    "2. NEVER offer to 'set up reminders', 'send notifications', 'automate tasks', or any other "
     "capability not listed above, even if it sounds helpful.\n"
-    "3. If a new capability is relevant, Ian will add it himself — your job is to stay within bounds."
+    "2. If a new capability is relevant, Ian will add it himself — your job is to stay within bounds."
+    "3. When Ian asks to automate something recurring, respond with a short natural "
+    "confirmation question (e.g. \"Create a workflow that shows your schedule every "
+    "weekday at 8am?\") right before calling buat_workflow — don't just call the tool silently."
 )
 
 TOOLS_SCHEMA = [
@@ -166,6 +172,35 @@ TOOLS_SCHEMA = [
             }
         }
     },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'buat_workflow',
+            'description': (
+                "Create a recurring automated workflow that runs one of Ian's existing "
+                "capabilities on a schedule. Use when Ian wants something to happen "
+                "automatically, repeatedly (e.g. 'remind me every Monday', 'show my "
+                "schedule every morning')."
+            ),
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'nama': {'type': 'string', 'description': "Short name for the workflow."},
+                    'waktu': {'type': 'string', 'description': "Trigger time, 24h HH:MM format."},
+                    'hari': {
+                        'type': 'array',
+                        'items': {'type': 'string', 'enum': ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']},
+                        'description': "Days to run on. Omit/empty = every day."
+                    },
+                    'aksi_plugin': {
+                        'type': 'string',
+                        'description': "Which existing tool to run — must be one of: lihat_jadwal, lihat_tugas, analisa_produktivitas, buka_aplikasi."
+                    }
+                },
+                'required': ['nama', 'waktu', 'aksi_plugin']
+            }
+        }
+    },
 ]
 
 def _format_jadwal(daftar):
@@ -173,6 +208,20 @@ def _format_jadwal(daftar):
         return "Your schedule's empty, Ian."
     baris = [f"{j['waktu']} - {j['aktivitas']}" for j in daftar]
     return "Here's your schedule:\n" + "\n".join(baris)
+
+def _eksekusi_buat_workflow(args):
+    nama = args.get('nama', 'Workflow Baru')
+    waktu = args.get('waktu')
+    hari = args.get('hari') or []
+    aksi_plugin = args.get('aksi_plugin')
+
+    trigger_config = {'time': waktu}
+    if hari:
+        trigger_config['days'] = hari
+    actions = [{'plugin': aksi_plugin, 'params': {}}]
+
+    id_baru = db.tambah_workflow(nama, 'time', json.dumps(trigger_config), json.dumps(actions))
+    return f"Workflow '{nama}' berhasil dibuat (ID {id_baru}), jalan jam {waktu}."
 
 FUNCTION_MAP = {
     "buka_aplikasi": lambda a: tools_neira.buka_aplikasi(a.get("nama_aplikasi", "")),
@@ -183,6 +232,7 @@ FUNCTION_MAP = {
     "tambah_jadwal": lambda a: f"Scheduled: '{a.get('aktivitas','')}' at {a.get('waktu','')}.",
     "lihat_jadwal": lambda a: _format_jadwal(db.ambil_jadwal()),
     "analisa_produktivitas": lambda a: plugin_manager.execute_plugin("productivity", {"nama_aplikasi": a.get("nama_aplikasi", "")}),
+    "buat_workflow": _eksekusi_buat_workflow,
 }
 
 def perlu_akses_internet(teks: str) -> bool:
@@ -227,7 +277,7 @@ Title:"""
     except Exception as e:
         print(f"[Judul Generator] Gagal generate judul: {e}")
         return pesan_user[:20]
-
+    
 def proses_perintah_backend(perintah, session_id):
     """Menjaga urutan argumen asli (perintah, session_id)"""
     try:
@@ -320,13 +370,33 @@ def proses_perintah_backend(perintah, session_id):
                     'tool_calls': tool_calls_terdeteksi
                 }
 
-                daftar_aksi = [
-                    {
-                        'nama_fungsi': p['function']['name'],
-                        'label': LABEL_TOOL.get(p['function']['name'], lambda a: p['function']['name'])(p['function'].get('arguments', {}))
-                    }
-                    for p in tool_calls_terdeteksi
-                ]
+                daftar_aksi = []
+                for p in tool_calls_terdeteksi:
+                    nama_fungsi = p['function']['name']
+                    args_fungsi = p['function'].get('arguments', {})
+
+                    if nama_fungsi == 'buat_workflow':
+                        steps = ["Create workflow"]
+                        if args_fungsi.get('hari'):
+                            hari_text = ', '.join(h.title() for h in args_fungsi['hari'])
+                            steps.append(f"Schedule trigger ({hari_text} {args_fungsi.get('waktu', '')})")
+                        else:
+                            steps.append(f"Schedule trigger (daily {args_fungsi.get('waktu', '')})")
+                        if args_fungsi.get('aksi_plugin'):
+                            steps.append(f"Run action: {args_fungsi['aksi_plugin']}")
+
+                        daftar_aksi.append({
+                            'nama_fungsi': nama_fungsi,
+                            'type': 'workflow',
+                            'deskripsi': respons_lengkap_neira.strip() or f"Create workflow '{args_fungsi.get('nama', '')}'?",
+                            'steps': steps
+                        })
+                    else:
+                        daftar_aksi.append({
+                            'nama_fungsi': nama_fungsi,
+                            'type': 'action',
+                            'label': LABEL_TOOL.get(nama_fungsi, lambda a: nama_fungsi)(args_fungsi)
+                        })
                 payload_konfirmasi = json.dumps(daftar_aksi)
                 yield f"[TOOL_CONFIRM_REQUIRED:{payload_konfirmasi}]"
 
@@ -401,3 +471,4 @@ def batalkan_tool_pending(session_id):
     """Dipanggil kalau user klik 'Batal'."""
     PENDING_TOOL_CALLS.pop(session_id, None)
     db.simpan_chat(session_id, "assistant", "(Aksi dibatalkan oleh Ian)")
+    

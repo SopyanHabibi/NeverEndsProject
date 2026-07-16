@@ -206,17 +206,35 @@ export function appendBubble(text, isUser) {
 }
 
 export function renderToolConfirmCard(textNode, daftarAksi, sessionId) {
-    const listHtml = daftarAksi.map(a => `<li>${a.label}</li>`).join('');
-    const judul = daftarAksi.length > 1 ? "Here's what I'll do:" : "";
-    textNode.innerHTML = `
-        <div class="tool-confirm-card">
-            ${judul ? `<p class="tool-confirm-title">${judul}</p>` : ''}
-            <ul class="tool-confirm-list">${listHtml}</ul>
-            <div class="tool-confirm-buttons">
-                <button class="tool-confirm-cancel">Cancel</button>
-                <button class="tool-confirm-run">Confirm</button>
-            </div>
-        </div>`;
+    const isWorkflow = daftarAksi.length === 1 && daftarAksi[0].type === 'workflow';
+
+    if (isWorkflow) {
+        const item = daftarAksi[0];
+        const stepsHtml = item.steps.map(s => `<li>${s}</li>`).join('');
+        textNode.innerHTML = `
+            <div class="tool-confirm-card workflow-confirm-card">
+                <p class="tool-confirm-title">Execute Task</p>
+                <p class="tool-confirm-desc">${item.deskripsi}</p>
+                <p class="tool-confirm-subtitle">Estimated actions:</p>
+                <ul class="tool-confirm-list">${stepsHtml}</ul>
+                <div class="tool-confirm-buttons">
+                    <button class="tool-confirm-cancel">Cancel</button>
+                    <button class="tool-confirm-run">Execute</button>
+                </div>
+            </div>`;
+    } else {
+        const listHtml = daftarAksi.map(a => `<li>${a.label}</li>`).join('');
+        const judul = daftarAksi.length > 1 ? "Here's what I'll do:" : "";
+        textNode.innerHTML = `
+            <div class="tool-confirm-card">
+                ${judul ? `<p class="tool-confirm-title">${judul}</p>` : ''}
+                <ul class="tool-confirm-list">${listHtml}</ul>
+                <div class="tool-confirm-buttons">
+                    <button class="tool-confirm-cancel">Cancel</button>
+                    <button class="tool-confirm-run">Confirm</button>
+                </div>
+            </div>`;
+    }
 
     const cancelBtn = textNode.querySelector('.tool-confirm-cancel');
     const runBtn = textNode.querySelector('.tool-confirm-run');

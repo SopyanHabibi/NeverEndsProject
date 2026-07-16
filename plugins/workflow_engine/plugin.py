@@ -36,6 +36,13 @@ class WorkflowEnginePlugin(BasePlugin):
             target_jam = config.get("time")
             if target_jam != jam_sekarang:
                 continue
+            
+            # Filter hari spesifik (kalau workflow dibatasi ke hari tertentu, misal cuma Senin)
+            hari_target = config.get("days")
+            if hari_target:
+                hari_sekarang = now.strftime("%A").lower()
+                if hari_sekarang not in [h.lower() for h in hari_target]:
+                    continue
 
             # Cegah double-trigger di menit yang sama
             if wf["last_run"] and wf["last_run"].startswith(f"{tanggal_sekarang} {jam_sekarang}"):

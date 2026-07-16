@@ -38,6 +38,7 @@ The goal is to build the experience around them.
 * 📂 Basic Workspace Awareness
 * 🔌 Plugin System
 * ⚙️ Workflow Automation (Basic version)
+* 🤖 Autonomous Task Execution
 
 ---
 
@@ -47,7 +48,6 @@ The roadmap is constantly evolving, but currently includes:
 
 * 🔊 Voice Input
 * 🗣️ Voice Output
-* 🤖 Autonomous Task Execution
 * 📧 Email Integration
 * 📱 Mobile Companion
 * 🧩 API Support
