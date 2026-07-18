@@ -6,9 +6,13 @@ import urllib.parse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from database import db
 from core.llm_engine import proses_perintah_backend, plugin_manager
+from core.session_state import PROJECT_ROOTS
 
 _pending_vscode = {"data": None}
 _pending_lock = threading.Lock()
+
+# BARU: simpan project root per session_id, biar tool get_project_structure/read_file tau folder mana yang dipakai
+PROJECT_ROOTS_LOCK = threading.Lock()
 
 class NeiraServerHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -170,11 +174,20 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                 nama_file = data.get('fileName', 'Unknown File')
                 kode_error = data.get('errorMessage', '')
                 kode_diblok = data.get('selectedCode', '')
+                project_root = data.get('projectRoot', '')  # BARU
+                
+                print(f"🐛 [DEBUG] Payload masuk dari VS Code: {data}")  # BARU — liat mentahnya
+                print(f"🐛 [DEBUG] project_root diterima: '{project_root}'")  # BARU
 
                 session_id = db.cek_project_eksis(nama_project)
                 if not session_id:
                     judul_baru = f"🛠️ Project: {nama_project}"
                     session_id = db.buat_sesi_project_baru(nama_project, judul=judul_baru)
+
+                # BARU: catat/update project root buat session ini
+                if project_root:
+                    with PROJECT_ROOTS_LOCK:
+                        PROJECT_ROOTS[session_id] = project_root
 
                 with _pending_lock:
                     _pending_vscode["data"] = {
