@@ -3,6 +3,7 @@ export interface VscodeAskPayload {
   fileName: string;
   selectedCode: string;
   errorMessage: string;
+  projectRoot: string;
 }
 
 export interface NeiraStreamCallbacks {

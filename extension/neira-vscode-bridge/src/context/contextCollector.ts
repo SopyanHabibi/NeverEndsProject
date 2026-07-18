@@ -18,7 +18,11 @@ export function collectContext(): VscodeAskPayload | null {
   const projectName = vscode.workspace.name || 'Unknown Project';
   const errorMessage = collectDiagnosticsForSelection(editor, selection);
 
-  return { projectName, fileName, selectedCode, errorMessage };
+  // BARU: ambil root folder project yang lagi dibuka di VS Code
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  const projectRoot = workspaceFolder?.uri.fsPath || '';
+
+  return { projectName, fileName, selectedCode, errorMessage, projectRoot };
 }
 
 function collectDiagnosticsForSelection(

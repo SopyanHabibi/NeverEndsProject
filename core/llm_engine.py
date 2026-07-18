@@ -4,6 +4,7 @@ import ollama
 from database import db
 from tools import tools_neira, dokumen
 from core.plugin_manager import PluginManager
+from core.session_state import PROJECT_ROOTS
 
 plugin_manager = PluginManager()
 plugin_manager.load_plugins()
@@ -32,7 +33,8 @@ LABEL_TOOL = {
 # aksi non-destruktif: nambah data baru, atau read-only
 TOOLS_AMAN_TANPA_KONFIRMASI = {
     "lihat_tugas", "lihat_jadwal", "analisa_produktivitas",
-    "tambah_tugas", "tambah_jadwal", "buka_aplikasi"
+    "tambah_tugas", "tambah_jadwal", "buka_aplikasi",
+    "read_file"
 }
 
 # Cuma aksi yang bisa NGERUSAK/NGUBAH data yang ada, yang tetap butuh konfirmasi
@@ -55,20 +57,25 @@ system_prompt = (
     "- Document analysis (PDF, DOCX, PPTX — when Ian uploads one)\n"
     "- Image understanding (when Ian uploads an image)\n"
     "- Internet search via Wikipedia (for up-to-date info)\n"
-    "- Activity monitoring (tracking app usage patterns)\n\n"
-    "- Personal schedule & task management (add/view/update tasks and schedule)\n"
+    "- Activity monitoring (tracking app usage patterns)\n"
     "- Create automated workflows: schedule an existing capability to run automatically "
     "on a recurring time/day (e.g. 'show my schedule every morning at 8am')\n"
-    "- Open apps and websites on Ian's PC\n"
+    "- Workspace awareness: when Ian shares code from VS Code, you can check the project's "
+    "folder structure and read related files if the selected code seems connected to other "
+    "files — but only when actually needed, not by default\n\n"
     "STRICT RULES:\n"
     "1. NEVER suggest, offer, or imply you can do something outside the list above. "
     "If Ian asks for something you can't do (e.g. send emails, set notifications, control smart home, "
     "make calls), just say you can't do that yet — don't improvise or pretend.\n"
-    "capability not listed above, even if it sounds helpful.\n"
-    "2. If a new capability is relevant, Ian will add it himself — your job is to stay within bounds."
+    "2. If a new capability is relevant, Ian will add it himself — your job is to stay within bounds.\n"
     "3. When Ian asks to automate something recurring, respond with a short natural "
     "confirmation question (e.g. \"Create a workflow that shows your schedule every "
-    "weekday at 8am?\") right before calling buat_workflow — don't just call the tool silently."
+    "weekday at 8am?\") right before calling buat_workflow — don't just call the tool silently.\n"
+    "4. When Ian shares code from VS Code, you'll be given the project's folder structure "
+    "automatically. If the selected code calls a function, imports a module, or references a "
+    "class/variable you can't see the definition of in the snippet, use the read_file tool to "
+    "check the relevant file from that structure BEFORE answering. Don't guess or make up file "
+    "paths — only use paths that actually appear in the structure you were given."
 )
 
 TOOLS_SCHEMA = [
@@ -201,6 +208,20 @@ TOOLS_SCHEMA = [
             }
         }
     },
+    {
+        'type': 'function',
+        'function': {
+            'name': 'read_file',
+            'description': "Read the full content of a specific file in Ian's current project, by its path relative to the project root. Only use this when you've identified (from the structure or from context) a specific file that's actually relevant to answering — don't read files speculatively.",
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'path': {'type': 'string', 'description': "File path relative to project root, e.g. 'src/utils/helper.py'."}
+                },
+                'required': ['path']
+            }
+        }
+    },
 ]
 
 def _format_jadwal(daftar):
@@ -233,6 +254,13 @@ FUNCTION_MAP = {
     "lihat_jadwal": lambda a: _format_jadwal(db.ambil_jadwal()),
     "analisa_produktivitas": lambda a: plugin_manager.execute_plugin("productivity", {"nama_aplikasi": a.get("nama_aplikasi", "")}),
     "buat_workflow": _eksekusi_buat_workflow,
+}
+
+# BARU: tool yang butuh session_id, di-handle terpisah karena FUNCTION_MAP biasa cuma nerima args
+FUNCTION_MAP_DENGAN_SESSION = {
+    "read_file": lambda a, sid: plugin_manager.execute_plugin(
+        "workspace_awareness", mode="read_file", project_root=PROJECT_ROOTS.get(sid, ""), path=a.get("path")
+    ),
 }
 
 def perlu_akses_internet(teks: str) -> bool:
@@ -302,7 +330,36 @@ def proses_perintah_backend(perintah, session_id):
             dynamic_prompt += f" Context about Ian: {str_konteks_profil}."
             
         messages_payload = [{'role': 'system', 'content': dynamic_prompt}]
-        
+
+        # Kalau session ini berasal dari VS Code (project root tercatat), otomatis suntik
+        # struktur folder DAN isi file yang di-import dari kode yang diblok — deteksi ini
+        # dilakukan lewat kode (regex), bukan diserahin ke keputusan LLM, karena model kecil
+        # gak reliable buat mutusin sendiri kapan harus baca file lain.
+        if session_id in PROJECT_ROOTS:
+            root_project = PROJECT_ROOTS[session_id]
+            struktur_project = plugin_manager.execute_plugin(
+                "workspace_awareness", mode="get_structure", project_root=root_project
+            )
+            isi_file_terkait = plugin_manager.execute_plugin(
+                "workspace_awareness", mode="auto_read_related",
+                project_root=root_project, selected_code=perintah
+            )
+
+            konten_tambahan = (
+                f"Here is the folder/file structure of Ian's current VS Code project:\n\n"
+                f"{struktur_project}\n\n"
+            )
+            if isi_file_terkait:
+                konten_tambahan += (
+                    f"Here is the content of file(s) imported/referenced by the code Ian selected "
+                    f"(already fetched for you, no need to ask or guess):\n\n{isi_file_terkait}\n\n"
+                )
+            konten_tambahan += (
+                "Use the structure and file content above to answer accurately. Don't guess or "
+                "make up file paths, imports, or bugs you haven't actually seen in the content above."
+            )
+            messages_payload.append({'role': 'user', 'content': konten_tambahan})
+
         if perlu_akses_internet(perintah):
             yield "🌐 Neira is searching the live web...\n\n"
             live_context = plugin_manager.execute_plugin("wikipedia", perintah)
@@ -338,7 +395,7 @@ def proses_perintah_backend(perintah, session_id):
         'messages': messages_payload,
         'stream': True,
         'tools': TOOLS_SCHEMA,
-        'options': {'temperature': 0.2, 'num_predict': 400}
+        'options': {'temperature': 0.2, 'num_predict': -1}  # -1 = gak dibatasi, biar output koding gak kepotong
     }
             
         response = ollama.chat(**kwargs_ollama)
@@ -413,8 +470,13 @@ def proses_perintah_backend(perintah, session_id):
                 for panggilan in tool_calls_terdeteksi:
                     nama_fungsi = panggilan['function']['name']
                     args_fungsi = panggilan['function'].get('arguments', {})
-                    fungsi = FUNCTION_MAP.get(nama_fungsi)
-                    hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
+
+                    if nama_fungsi in FUNCTION_MAP_DENGAN_SESSION:
+                        hasil_eksekusi = FUNCTION_MAP_DENGAN_SESSION[nama_fungsi](args_fungsi, session_id)
+                    else:
+                        fungsi = FUNCTION_MAP.get(nama_fungsi)
+                        hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
+
                     messages_payload.append({'role': 'tool', 'content': str(hasil_eksekusi), 'name': nama_fungsi})
 
                 second_response = ollama.chat(model='qwen2.5:7b-instruct-q4_K_M', messages=messages_payload, stream=True)
@@ -444,11 +506,16 @@ def eksekusi_tool_terkonfirmasi(session_id):
         messages_payload = pending['messages_payload']
         tool_calls = pending['tool_calls']
 
-        for panggilan in tool_calls:
+        for panggilan in tool_calls:  # atau tool_calls, tergantung lokasi
             nama_fungsi = panggilan['function']['name']
             args_fungsi = panggilan['function'].get('arguments', {})
-            fungsi = FUNCTION_MAP.get(nama_fungsi)
-            hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
+
+            if nama_fungsi in FUNCTION_MAP_DENGAN_SESSION:
+                hasil_eksekusi = FUNCTION_MAP_DENGAN_SESSION[nama_fungsi](args_fungsi, session_id)
+            else:
+                fungsi = FUNCTION_MAP.get(nama_fungsi)
+                hasil_eksekusi = fungsi(args_fungsi) if fungsi else "Unknown tool"
+
             messages_payload.append({'role': 'tool', 'content': str(hasil_eksekusi), 'name': nama_fungsi})
 
         second_response = ollama.chat(model='qwen2.5:7b-instruct-q4_K_M', messages=messages_payload, stream=True)
@@ -471,4 +538,3 @@ def batalkan_tool_pending(session_id):
     """Dipanggil kalau user klik 'Batal'."""
     PENDING_TOOL_CALLS.pop(session_id, None)
     db.simpan_chat(session_id, "assistant", "(Aksi dibatalkan oleh Ian)")
-    
