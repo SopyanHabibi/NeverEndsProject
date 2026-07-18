@@ -288,6 +288,3 @@ document.addEventListener("DOMContentLoaded", () => {
     if (inputArea) inputArea.focus();
 });
 
-window.addEventListener('beforeunload', () => {
-    navigator.sendBeacon('/api/shutdown');
-});
