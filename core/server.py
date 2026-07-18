@@ -245,15 +245,15 @@ class NeiraServerHandler(SimpleHTTPRequestHandler):
                 print(f"Error delete: {e}")
             return
 
-        # 6. SHUTDOWN BEACON VIA CLOSE TAB
+        # 6. SHUTDOWN BEACON VIA CLOSE TAB (DINONAKTIFKAN SEMENTARA - dev mode)
         elif self.path == '/api/shutdown':
             self.send_response(200)
             self.end_headers()
-            print("\n🔌 Tab Browser ditutup oleh Ian. Mematikan Server Neira...")
-            def kill():
-                time.sleep(0.5)
-                os._exit(0)
-            threading.Thread(target=kill).start()
+            print("\n⚠️  Shutdown request diterima tapi diabaikan (dev mode aktif).")
+            # def kill():
+            #     time.sleep(0.5)
+            #     os._exit(0)
+            # threading.Thread(target=kill).start()
             return
         
         # 7. WORKFLOW CRUD
