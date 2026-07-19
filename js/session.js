@@ -1,5 +1,5 @@
 // js/session.js
-import { appendBubble } from './chat.js';
+import { appendBubble, highlightCodeDenganRetry } from './chat.js';
 
 export let currentSessionId = null;
 export let isFirstChatInSession = true;
@@ -80,6 +80,9 @@ export async function switchSession(id) {
             appendBubble(chat.content, chat.role === 'user');
         });
     }
+
+    highlightCodeDenganRetry(container); // BARU: highlight semua code block di history yang baru di-render
+
     loadSessions();
 }
 

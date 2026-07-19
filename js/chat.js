@@ -4,7 +4,7 @@ import { currentSessionId, loadSessions, setSessionId, setIsFirstChat } from './
 
 // BARU: retry highlight kalau Prism belum ke-load pas [DONE] diterima,
 // biar gak diem-diem skip & warna hilang permanen kayak sebelumnya.
-function highlightCodeDenganRetry(textNode, percobaanKe = 0) {
+export function highlightCodeDenganRetry(textNode, percobaanKe = 0) {
     const MAKS_PERCOBAAN = 10;
     const JEDA_MS = 300;
 
