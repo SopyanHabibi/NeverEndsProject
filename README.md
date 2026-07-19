@@ -35,7 +35,7 @@ The goal is to build the experience around them.
 * 👁️ Vision (Image Understanding)
 * 🌐 Internet Search
 * 🔍 Memory retrieval using keyword detection.
-* 📂 Basic Workspace Awareness
+* 📂 Upgraded Workspace Awareness
 * 🔌 Plugin System
 * ⚙️ Workflow Automation (Basic version)
 * 🤖 Autonomous Task Execution

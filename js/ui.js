@@ -144,5 +144,34 @@ export function formatMarkdownToHtml(text) {
         return savedBlocks[parseInt(index, 10)];
     });
 
+    // 4. BARU: rapiin baris kosong berlebih (biar teks-ke-code gak kejauhan jaraknya)
+    // Maksimal 1 baris kosong (2x \n) di mana pun di teks
+    processedText = processedText.replace(/\n{3,}/g, '\n\n');
+    // Khusus di sekitar code block: hilangin baris kosong yang nempel langsung ke wrapper
+    processedText = processedText.replace(/\n+(\s*<div class="minimal-code-wrapper">)/g, '$1');
+    processedText = processedText.replace(/(<\/div>\s*)\n+/g, '$1');
+
     return processedText;
 }
+
+// Fungsi global buat tombol copy code - dipanggil lewat onclick di HTML
+window.copyMinimalCode = function(buttonElement) {
+    const encodedCode = buttonElement.getAttribute('data-code');
+    const originalCode = decodeURIComponent(escape(atob(encodedCode)));
+
+    navigator.clipboard.writeText(originalCode).then(() => {
+        const copyIcon = buttonElement.querySelector('.copy-icon');
+        const checkIcon = buttonElement.querySelector('.check-icon');
+
+        copyIcon.classList.add('hidden');
+        checkIcon.classList.remove('hidden');
+
+
+        setTimeout(() => {
+            copyIcon.classList.remove('hidden');
+            checkIcon.classList.add('hidden');
+        }, 1500);
+    }).catch(err => {
+        console.log('Gagal copy code:', err);
+    });
+};

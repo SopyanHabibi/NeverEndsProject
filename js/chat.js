@@ -2,6 +2,26 @@
 import { autoGrow, formatMarkdownToHtml } from './ui.js';
 import { currentSessionId, loadSessions, setSessionId, setIsFirstChat } from './session.js';
 
+// BARU: retry highlight kalau Prism belum ke-load pas [DONE] diterima,
+// biar gak diem-diem skip & warna hilang permanen kayak sebelumnya.
+function highlightCodeDenganRetry(textNode, percobaanKe = 0) {
+    const MAKS_PERCOBAAN = 10;
+    const JEDA_MS = 300;
+
+    if (window.Prism) {
+        textNode.querySelectorAll('code[class*="language-"]').forEach(el => {
+            Prism.highlightElement(el);
+        });
+        return;
+    }
+
+    if (percobaanKe < MAKS_PERCOBAAN) {
+        setTimeout(() => highlightCodeDenganRetry(textNode, percobaanKe + 1), JEDA_MS);
+    } else {
+        console.warn('Prism gagal load setelah beberapa percobaan, syntax highlight dilewati.');
+    }
+}
+
 export async function kirimPesan() {
     const input = document.getElementById('userInput');
     if (!input || input.value.trim() === '') return;
@@ -65,11 +85,7 @@ export async function kirimPesanDenganTampilanCustom(displayHtml, actualPrompt) 
             setIsFirstChat(false);
             loadSessions();
             setTimeout(loadSessions, 2500); // refresh susulan buat nangkep judul async
-            if (window.Prism) {
-                textNode.querySelectorAll('code[class*="language-"]').forEach(el => {
-                    Prism.highlightElement(el);
-                });
-            }
+            highlightCodeDenganRetry(textNode);
             return;
         }
 
@@ -149,11 +165,7 @@ export async function kirimPesanDenganTeks(text) {
             setIsFirstChat(false);
             loadSessions();
             setTimeout(loadSessions, 2500); // refresh susulan buat nangkep judul async
-            if (window.Prism) {
-                textNode.querySelectorAll('code[class*="language-"]').forEach(el => {
-                    Prism.highlightElement(el);
-                });
-            }
+            highlightCodeDenganRetry(textNode);
             return;
         }
 
